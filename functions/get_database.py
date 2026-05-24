@@ -33,5 +33,8 @@ def get_database(input):
     
     elif input.select() == "1C":  # Sample database
         database = "Sample"
+
+    elif input.select() == "1D":
+        database = "API"
     
     return database

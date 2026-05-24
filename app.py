@@ -63,6 +63,7 @@ from google.genai import types
 from shiny import reactive, render
 from shinywidgets import render_widget
 from shiny.express import ui, input, render
+from www.services import api_etl
 
 # Setup the Directory for static assets - optimized for performance
 base_dir = tempfile.gettempdir()  # Use system temp dir instead of creating new temp file
@@ -650,7 +651,8 @@ with ui.tags.div(id="mainContent", class_="main-content"):
                             "": "-",
                             "1A": "Import raw data file(s)",
                             "1B": "Load Bibliometrix file(s)",
-                            "1C": "Use a sample dataset"
+                            "1C": "Use a sample dataset",
+                            "1D": "API"
                         },
                     )
 
@@ -711,6 +713,20 @@ with ui.tags.div(id="mainContent", class_="main-content"):
                             ui.input_action_button("start_button", "Start", icon=ICONS["play"])
                             ui.markdown("Select a predefined sample dataset for testing purposes.")
 
+                        elif input.select() == "1D":
+                            ui.h6("API.")
+                            ui.p("API")
+
+                            ui.markdown("*API*")
+                            ui.input_text(
+                                id="openalex_query", 
+                                label="Enter OpenAlex Search Keywords:", 
+                                placeholder="e.g., 'machine learning' AND healthcare",
+                                width="100%"
+                            )
+                            ui.input_action_button("start_button", "Start", icon=ICONS["play"])
+                            ui.markdown("Generate a query for OpenAlex.")
+
                         else:
                             ui.p("Please select a valid action to begin managing your data.", style="color: gray;")
                             ui.p("Follow the instructions below to manage your data efficiently:")
@@ -720,7 +736,8 @@ with ui.tags.div(id="mainContent", class_="main-content"):
                                 1. <b>Import Raw Data</b>: Select 'Import raw data file(s)' to upload your dataset in .csv, .txt, or .zip format. Choose the correct database and author name format based on your source.<br>
                                 2. <b>Load Bibliometrix Data</b>: If you are working with Bibliometrix datasets, select the corresponding option to load your files.<br>
                                 3. <b>Use a Sample Dataset</b>: For testing purposes, you can load a predefined sample dataset.<br>
-                                4. <b>Export Options</b>: After processing, export your dataset as Excel (.xlsx) or R Data Format (.RData) for further analysis.
+                                4. <b>Use a OpenAlex Dataset</b>: You can load results from a OpenAlex query.<br>
+                                5. <b>Export Options</b>: After processing, export your dataset as Excel (.xlsx) or R Data Format (.RData) for further analysis.
                                 </div>
                                 """
                             )
@@ -748,7 +765,22 @@ with ui.tags.div(id="mainContent", class_="main-content"):
 
                     if database == "Sample":
                         data = df.set(pd.read_excel("sources/samples/sample.xlsx"))
+                        print(df.get())
                         reset_all_analyses()  # Reset analysis results when sample is loaded
+
+                    if database == "API":
+                        user_keywords = input.openalex_query().strip()
+        
+                        # Ensure no blank before calling the API
+                        if not user_keywords:
+                            ui.notification_show("Please enter a keyword before clicking Start!", type="error")
+                            return
+                        
+                        temp_data = api_etl.search_openalex_keywords(user_keywords, max_records=250)
+                        #temp_data = metaTagExtraction(temp_data, Field='SR')
+                        data = df.set(temp_data)
+                        print(df.get())
+                        reset_all_analyses()
 
                     @render.express()
                     @reactive.event(input.Dataset)
