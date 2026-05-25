@@ -65,6 +65,13 @@ from shinywidgets import render_widget
 from shiny.express import ui, input, render
 from www.services import api_etl
 
+API_PARSER = {
+    'pubmed': api_etl.search_pubmed_keywords,
+    'open_alex': api_etl.search_openalex_keywords,
+    'wos': api_etl.search_wos_keywords,
+    'scopus': api_etl.search_scopus_keywords
+}
+
 # Setup the Directory for static assets - optimized for performance
 base_dir = tempfile.gettempdir()  # Use system temp dir instead of creating new temp file
 express.app_opts(static_assets=base_dir, debug=False)
@@ -698,34 +705,58 @@ with ui.tags.div(id="mainContent", class_="main-content"):
                                 multiple=True
                             )
                             ui.p("Load raw data file(s) in .csv, .txt, or .zip format from WoS, Scopus, Dimensions, Lens.org, PubMed, or Cochrane Library", style="color: gray; font-size: 10px; margin-top: -20px;")
-                            ui.input_action_button("start_button", "Start", icon=ICONS["play"])
+                            ui.input_action_button("load_data", "Load data from dataset", icon=ICONS["play"])
+                            ui.input_action_button("start_button", "Start analysis", icon=ICONS["play"])
+                            ui.markdown("Move to analysis interface with loaded data.")
                             
                         elif input.select() == "1B":
                             ui.input_file("Dataset", "Choose a File", accept=[".xlsx"], multiple=True)
-                            ui.input_action_button("start_button", "Start", icon=ICONS["play"])
-                            ui.markdown("Load a collection in **XLSX** or **R** format previously exported from bibliometrix")
+                            ui.input_action_button("load_data", "Load data from file", icon=ICONS["play"])
+                            ui.input_action_button("start_button", "Start analysis", icon=ICONS["play"])
+                            ui.markdown("Move to analysis interface with loaded data.")
 
                         elif input.select() == "1C":
                             ui.h6("The use of bibliometric approaches in business and management disciplines.")
                             ui.p("Dataset 'Management'")
 
                             ui.markdown("*A collection of scientific articles about the use of bibliometric approaches in business and management disciplines. Period: 1985 - 2020 , Source WoS.*")
-                            ui.input_action_button("start_button", "Start", icon=ICONS["play"])
-                            ui.markdown("Select a predefined sample dataset for testing purposes.")
+                            ui.input_action_button("load_data", "Load data from sample", icon=ICONS["play"])
+
+                            ui.input_action_button("start_button", "Start analysis", icon=ICONS["play"])
+                            ui.markdown("Move to analysis interface with loaded data.")
 
                         elif input.select() == "1D":
                             ui.h6("API.")
                             ui.p("API")
 
                             ui.markdown("*API*")
+                            ui.input_select(
+                                "api_source",  
+                                "Source:",  
+                                {
+                                    "pubmed": "PubMed",
+                                    "open_alex": "Open Alex",
+                                    "wos": "Web of Science",
+                                    "scopus": "Scopus"
+                                },
+                            )
                             ui.input_text(
-                                id="openalex_query", 
-                                label="Enter OpenAlex Search Keywords:", 
-                                placeholder="e.g., 'machine learning' AND healthcare",
+                                id="api_key", 
+                                label="Enter the service's API Key (if required):", 
+                                placeholder="",
                                 width="100%"
                             )
-                            ui.input_action_button("start_button", "Start", icon=ICONS["play"])
-                            ui.markdown("Generate a query for OpenAlex.")
+                            ui.input_text(
+                                id="api_query", 
+                                label="Enter Query Search Keywords:", 
+                                placeholder="e.g., 'machine learning'",
+                                width="100%"
+                            )
+                            ui.input_action_button("load_data", "Load data from query", icon=ICONS["play"])
+                            ui.markdown("Execute the query.")
+                            ui.input_action_button("start_button", "Start analysis", icon=ICONS["play"])
+                            ui.markdown("Move to analysis interface with loaded data.")
+                            
 
                         else:
                             ui.p("Please select a valid action to begin managing your data.", style="color: gray;")
@@ -756,30 +787,60 @@ with ui.tags.div(id="mainContent", class_="main-content"):
                         # ui.input_action_button("export_button", "Export", icon=ICONS["download"], disabled=True)
 
                 @render.express()
-                @reactive.event(input.start_button)
+                @reactive.event(input.load_data)
                 def mostra():
                     database = get_database(input)
-                    ui.update_sidebar("sidebar_load_data", show=False)
+                    #ui.update_sidebar("sidebar_load_data", show=False)
                     ui.update_action_button("export_button", disabled=False)
                     ui.markdown(f"<h3 style='text-align:center; color: #5567BB;'>Data of {database}</h3>")
 
                     if database == "Sample":
                         data = df.set(pd.read_excel("sources/samples/sample.xlsx"))
-                        print(df.get())
+                        ui.modal_show(
+                                ui.modal(
+                                    "The sample has been loaded.",
+                                    title="Operation Complete",
+                                    easy_close=True,  
+                                    footer=ui.modal_button("OK")  
+                                )   
+                            )
                         reset_all_analyses()  # Reset analysis results when sample is loaded
 
                     if database == "API":
-                        user_keywords = input.openalex_query().strip()
+                        user_keywords = input.api_query().strip()
         
                         # Ensure no blank before calling the API
                         if not user_keywords:
                             ui.notification_show("Please enter a keyword before clicking Start!", type="error")
                             return
+                        query_result = API_PARSER[input.api_source()](user_keywords, max_records=250, key=input.api_key())
+
+                        # If the current dataframe is empty
+                        if df.get() is None:
+                            # Initialize it with the first query search
+                            data = df.set(query_result)
+                            ui.modal_show(
+                                ui.modal(
+                                    "The dataset has been initialized with papers fetched from the query.",
+                                    title="Operation Complete",
+                                    easy_close=True,  
+                                    footer=ui.modal_button("OK")  
+                                )   
+                            )
+                        else:
+                            # Append rows to existing dataframe
+                            current_df = df.get()
+                            temp_data = pd.concat([current_df, query_result])
+                            data = df.set(temp_data)
+                            ui.modal_show(
+                                ui.modal(
+                                    "The dataset has been enlarged with papers fetched from the query.",
+                                    title="Operation Complete",
+                                    easy_close=True,  
+                                    footer=ui.modal_button("OK")  
+                                )
+                            )
                         
-                        temp_data = api_etl.search_openalex_keywords(user_keywords, max_records=250)
-                        #temp_data = metaTagExtraction(temp_data, Field='SR')
-                        data = df.set(temp_data)
-                        print(df.get())
                         reset_all_analyses()
 
                     @render.express()

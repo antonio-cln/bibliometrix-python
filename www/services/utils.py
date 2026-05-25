@@ -22,6 +22,7 @@ import plotly.express as px
 import matplotlib.pyplot as plt
 import plotly.graph_objects as go
 import plotly.figure_factory as ff
+import xml.etree.ElementTree as ET
 import matplotlib.colors as mcolors
 import scipy.cluster.hierarchy as sch
 
