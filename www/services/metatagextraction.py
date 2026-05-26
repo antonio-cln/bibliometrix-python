@@ -14,15 +14,7 @@ def metaTagExtraction(df, Field="AU_CO", sep=";", aff_disamb=False):
     Returns:
         A DataFrame with the extracted metadata tags.
     """
-    # Flag is true if df is a pd.DataFrame, it is False if it is a reactive object
-    flag = True
-    if isinstance(df, pd.DataFrame):
-        flag = False
-    
-    if flag:
-        M = df.copy()
-    else:
-        M = df.get()
+    M = df.get()
 
     if Field == "SR":
         M = SR(M)
@@ -49,10 +41,7 @@ def metaTagExtraction(df, Field="AU_CO", sep=";", aff_disamb=False):
             a = ind[ind > -1].index
             M.loc[a, "AU1_UN"] = M.loc[a, "AU1_UN"].str[ind[a] + 2:]
 
-    if flag:
-        df = M
-    else:
-        df.set(M)
+    df.set(M)
     
     return df
 

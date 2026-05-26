@@ -152,7 +152,7 @@ def translate_openalex_record(item):
         "IS": str(biblio.get("issue", "")) if biblio.get("issue") else "",
         "BP": str(biblio.get("first_page", "")) if biblio.get("first_page") else "",
         "EP": str(biblio.get("last_page", "")) if biblio.get("last_page") else "",
-        #"SR": calculated_sr   # Calculated Short Reference
+        "SR": calculated_sr   # Calculated Short Reference
     }
 
 # ==============================================================================
@@ -292,7 +292,7 @@ def translate_pubmed_record(pubmed_article):
         "IS": issue,
         "BP": bp_str,
         "EP": ep_str,
-        #SR": calculated_sr
+        "SR": calculated_sr
     }
 
 # ==============================================================================
@@ -526,7 +526,7 @@ def translate_scopus_record(item):
         "IS": str(item.get("prism:issueIdentifier", "")),
         "BP": bp_str,
         "EP": ep_str,
-        #"SR": calculated_sr   
+        "SR": calculated_sr   
     }
 
 # ==============================================================================
@@ -603,9 +603,10 @@ def search_openalex_keywords(keyword, max_records=500, key=""):
         page += 1
         time.sleep(0.2)
     
-    df = pd.DataFrame(master_records)
-    df = metatagextraction.metaTagExtraction(df, Field='SR')
-    return df
+    #df = pd.DataFrame(master_records)
+    #df = metatagextraction.metaTagExtraction(df, Field='SR')
+    #return df
+    return master_records
 
 # ==============================================================================
 # FETCHER: PUBMED SELECTION / EXTRACTION SYSTEM WITH EXPONENTIAL BACKOFF
@@ -695,9 +696,10 @@ def search_pubmed_keywords(keyword, max_records=500, key=""):
         print(f"-> Parsed and translated {len(master_records)} total records from PubMed...")
         time.sleep(0.3)  # Respect NCBI baseline throttling boundaries
         
-    df = pd.DataFrame(master_records)
-    df = metatagextraction.metaTagExtraction(df, Field='SR')
-    return df
+    #df = pd.DataFrame(master_records)
+    #df = metatagextraction.metaTagExtraction(df, Field='SR')
+    #return df
+    return master_records
 
 # ==============================================================================
 # FETCHER: WOS SEARCH QUERY SYSTEM WITH EXPONENTIAL BACKOFF
@@ -778,10 +780,11 @@ def search_wos_keywords(keyword, max_records=500, key=""):
         # Paginate forward by tracking starting index positions
         first_record += count
         time.sleep(0.5)  # Standard safety spacing for throttle limits
-        
-    df = pd.DataFrame(master_records)
-    df = metatagextraction.metaTagExtraction(df, Field='SR')
-    return df
+
+    #df = pd.DataFrame(master_records)
+    #df = metatagextraction.metaTagExtraction(df, Field='SR')
+    #return df
+    return master_records
 
 # ==============================================================================
 # FETCHER: SCOPUS SEARCH ENGINE WITH EXPONENTIAL BACKOFF RETRY LOOP
@@ -864,9 +867,10 @@ def search_scopus_keywords(keyword, max_records=500, key=" "):
         start_index += count
         time.sleep(0.3)  # Maintain steady pacing for standard Scopus rate boundaries
         
-    df = pd.DataFrame(master_records)
-    df = metatagextraction.metaTagExtraction(df, Field='SR')
-    return df
+    #df = pd.DataFrame(master_records)
+    #df = metatagextraction.metaTagExtraction(df, Field='SR')
+    #return df
+    return master_records
 
 # ==============================================================================
 # PIPELINE EXECUTION ENGINE
