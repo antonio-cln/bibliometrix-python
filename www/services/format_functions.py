@@ -4,6 +4,15 @@ import zipfile
 import tempfile
 import os
 
+def is_valid_field(val):
+    """Helper to catch missing/NaN data from pandas dict conversion."""
+    if val is None:
+        return False
+    if isinstance(val, float) and math.isnan(val):
+        return False
+    if str(val).strip().lower() in ["", "nan", "null"]:
+        return False
+    return True
 
 def format_ab_column(entry, source, file_type):         # Function for AB Column (format--> "Abstract")
     abstract = ''
@@ -19,7 +28,8 @@ def format_ab_column(entry, source, file_type):         # Function for AB Column
         if file_type == '.bib':
             abstract = entry.get('abstract', '')
         elif file_type == '.csv':
-            abstract = entry['Abstract']
+            val = entry.get('Abstract', '')
+            abstract = str(val).strip() if is_valid_field(val) else ""
     elif source == 'Dimensions':
         if file_type == '.csv' or file_type == '.xlsx':
             abstract = entry['Abstract']
@@ -94,13 +104,15 @@ def format_af_column(entry, source, file_type):         # Function for AF Column
                 author_dict = surname + ' ' + first_names
                 authors.append(author_dict)
         elif file_type == '.csv':
-            persons = str(entry['Author full names']).split("; ")
-            for person in persons:
-                if person.strip() and len(person.split(", ")) == 2:
-                    surname, name_oid = person.split(", ")
-                    name = name_oid.split(" (")[0]
-                    author_dict = surname + ' ' + name
-                    authors.append(author_dict)
+            raw_full = entry.get('Author full names', '')
+            if is_valid_field(raw_full):
+                # Format: "Tawabini, Bassam (6508032548); Smith, John (12345)"
+                records = str(raw_full).split("; ")
+                for rec in records:
+                    # Remove the Scopus Author ID tracking trailing parentheses
+                    clean_name = re.sub(r"\s*\(\d+\)", "", rec).strip()
+                    if clean_name:
+                        authors.append(clean_name)
     elif source == 'Dimensions':
         if file_type == '.csv' or file_type == '.xlsx':
             persons = entry['Authors'].split("; ")
@@ -180,14 +192,13 @@ def format_au_column(entry, source, file_type):         # Function for AU Column
                 author_dict = surname + ' ' + initials
                 authors.append(author_dict)
         elif file_type == '.csv':
-            persons = str(entry['Authors']).split("; ")
-            for person in persons:
-                if person.strip() and len(person.strip().split(" ")) > 1:
-                    parts = person.split(" ")
-                    surname = " ".join(parts[:-1])
-                    initials = parts[-1]
-                    author_dict = surname + ' ' + initials
-                    authors.append(author_dict)
+            raw_authors = entry.get('Authors', '')
+            if is_valid_field(raw_authors):
+                # Scopus CSV lists authors as: "Tawabini B., Smith J.R."
+                authors_list = str(raw_authors).split(", ")
+                for author in authors_list:
+                    if author.strip():
+                        authors.append(author.strip())
     elif source == 'Dimensions':
         if file_type == '.csv' or file_type == '.xlsx':
             # Pulizia preliminare dei dati
@@ -355,8 +366,8 @@ def format_bp_column(entry, source, file_type):         # Function for BP Column
         if file_type == '.bib':
             begin_page = entry.get('pages', '').split(" - ")[0]
         elif file_type == '.csv':
-            if str(entry.get('Page start', '')) != "nan":
-                begin_page = str(entry.get('Page start', ''))
+            val = entry.get('Page start', '')
+            begin_page = str(val).strip() if is_valid_field(val) else ""
     elif source == 'Dimensions':
         if file_type == '.csv' or file_type == '.xlsx':
             if len(str(entry['Pagination']).split("-")) == 2:
@@ -410,8 +421,10 @@ def format_c1_column(entry, source, file_type):         # Function for C1 Column
             for affiliation in entry.get('affiliations', []).split("; "):
                 affiliations.append(affiliation)
         elif file_type == '.csv':
-            for affiliation in str(entry['Affiliations']).split("; "):
-                affiliations.append(affiliation)
+            raw_aff = entry.get('Affiliations', '')
+            if is_valid_field(raw_aff):
+                # Scopus isolates distinct institution addresses via semicolons
+                affiliations = [aff.strip() for aff in str(raw_aff).split("; ") if aff.strip()]
     elif source == 'Dimensions':
         if file_type == '.csv' or file_type == '.xlsx':
             persons = re.findall(r'\((.*?)\)', entry['Authors (Raw Affiliation)']) 
@@ -443,8 +456,12 @@ def format_cr_column(entry, source, file_type):         # Function for CR Column
             cited_references = []
     elif source == 'Scopus':
         if file_type == '.csv':
-            for reference in str(entry.get('References', '')).split("; "):
-                cited_references.append(reference)
+            raw_refs = entry.get('References', '')
+            if is_valid_field(raw_refs):
+                # Scopus references contain deep tracking data separated by semicolons.
+                # Using a lookahead regex splits records safely without fragmenting inside individual fields.
+                split_refs = re.split(r';\s*(?=[A-Z][a-z]+,)', str(raw_refs))
+                cited_references = [ref.strip() for ref in split_refs if ref.strip()]
     elif source == 'Dimensions':
         if file_type == '.csv' or file_type == '.xlsx':
             cited_references = []
@@ -483,11 +500,9 @@ def format_de_column(entry, source, file_type):         # Function for DE Column
             except:
                 author_keywords = []
         elif file_type == '.csv':
-            for keyword in str(entry['Author Keywords']).split("; "):
-                if keyword != "nan":
-                    author_keywords.append(keyword)
-                else:
-                    author_keywords = []
+            val = entry.get('Author Keywords', '')
+            if is_valid_field(val):
+                author_keywords = [k.strip() for k in str(val).split("; ") if k.strip()]
     elif source == 'Dimensions':
         if file_type == '.csv' or file_type == '.xlsx':
             if str(entry['MeSH terms']) == 'nan':
@@ -528,7 +543,8 @@ def format_di_column(entry, source, file_type):         # Function for DI Column
         if file_type == '.bib':
             doi = entry.get('doi', '')
         elif file_type == '.csv':
-            doi = entry.get('DOI', '')
+            val = entry.get('DOI', '')
+            doi = str(val).strip() if is_valid_field(val) else ""
     elif source == 'Dimensions':
         if file_type == '.csv' or file_type == '.xlsx':
             doi = entry['DOI']
@@ -556,7 +572,8 @@ def format_dt_column(entry, source, file_type):         # Function for DT Column
         if file_type == '.bib':
             document_type = entry.get('type', '')
         elif file_type == '.csv':
-            document_type = entry.get('Document Type', '')
+            val = entry.get('Document Type', '')
+            document_type = str(val).title().strip() if is_valid_field(val) else "Article"
     elif source == 'Dimensions':
         if file_type == '.csv' or file_type == '.xlsx':
             document_type = entry['Publication Type']
@@ -636,8 +653,8 @@ def format_ep_column(entry, source, file_type):         # Function for EP Column
             except:
                 end_page = ''
         elif file_type == '.csv':
-            if str(entry.get('Page end', '')) != "nan":
-                end_page = str(entry.get('Page end', ''))
+            val = entry.get('Page end', '')
+            end_page = str(val).strip() if is_valid_field(val) else ""
     elif source == 'Dimensions':
         if file_type == '.csv' or file_type == '.xlsx':
             if len(str(entry['Pagination']).split("-")) == 2:
@@ -731,8 +748,9 @@ def format_id_column(entry, source, file_type):         # Function for ID Column
             except:
                 index_keywords = []
         elif file_type == '.csv':
-            for keyword in str(entry['Index Keywords']).split("; "):
-                index_keywords.append(keyword)
+            val = entry.get('Index Keywords', '')
+            if is_valid_field(val):
+                index_keywords = [k.strip() for k in str(val).split("; ") if k.strip()]
     elif source == 'Dimensions':
         if file_type == '.csv' or file_type == '.xlsx':
             if str(entry['MeSH terms']) == 'nan':
@@ -773,8 +791,8 @@ def format_is_column(entry, source, file_type):         # Function for IS Column
         if file_type == '.bib':
             issue = entry.get('number', '')
         elif file_type == '.csv':
-            if str(entry.get('Issue', '')) != "nan":
-                issue = str(int(entry.get('Issue', '')))
+            val = entry.get('Issue', '')
+            issue = str(val).strip() if is_valid_field(val) else ""
     elif source == 'Dimensions':
         if file_type == '.csv' or file_type == '.xlsx':
             issue = entry['Issue'] if str(entry['Issue']) != "nan" else ''
@@ -802,7 +820,8 @@ def format_ji_column(entry, source, file_type):         # Function for JI Column
         if file_type == '.bib':
             abbrev_source_title = entry.get('abbrev_source_title', '')
         elif file_type == '.csv':
-            abbrev_source_title = entry.get('Abbreviated Source Title', '')
+            val = entry.get('Abbreviated Source Title', '')
+            abbrev_source_title = str(val).strip() if is_valid_field(val) else ""
     elif source == 'Dimensions':
         if file_type == '.csv' or file_type == '.xlsx':
             abbrev_source_title = entry['Source title']
@@ -830,7 +849,8 @@ def format_la_column(entry, source, file_type):         # Function for LA Column
         if file_type == '.bib':
             language = entry.get('language', '')
         elif file_type == '.csv':
-            language = entry.get('Language of Original Document', '')
+            val = entry.get('Language of Original Document', '')
+            language = str(val).strip() if is_valid_field(val) else "English"
     elif source == 'Dimensions':
         if file_type == '.csv' or file_type == '.xlsx':
             language = ''
@@ -937,10 +957,10 @@ def format_pmid_column(entry, source, file_type):       # Function for PMID Colu
             except:
                 pmid = ''
         elif file_type == '.csv':
-            if str(entry.get('PubMed ID', '')) != "nan":
-                pmid = str(int(entry.get('PubMed ID', '')))
-            else:
-                pmid = ''
+            val = entry.get('PubMed ID', '')
+            if is_valid_field(val):
+                # Ensure it drops floats (.0) if pandas reads it as a numeric column
+                pmid = str(int(float(val)))
     elif source == 'Dimensions':
         if file_type == '.csv' or file_type == '.xlsx':
             pmid = entry['PMID'] if str(entry['PMID']) != "nan" else ''
@@ -997,7 +1017,11 @@ def format_py_column(entry, source, file_type):         # Function for PY Column
         if file_type == '.bib':
             publication_year = str(entry.get('year', ''))
         elif file_type == '.csv':
-            publication_year = str(entry.get('Year', ''))
+            val = entry.get('Year', '')
+            try:
+                publication_year = int(float(val)) if is_valid_field(val) else None
+            except ValueError:
+                publication_year = None
     elif source == 'Dimensions':
         if file_type == '.csv' or file_type == '.xlsx':
             publication_year = entry['PubYear']
@@ -1049,7 +1073,8 @@ def format_rp_column(entry, source, file_type):         # Function for RP Column
         if file_type == '.bib':
             correspondence_address = entry.get('correspondence_address', '')
         elif file_type == '.csv':
-            correspondence_address = entry.get('Correspondence Address', '')
+            raw_rp = entry.get('Correspondence Address', '')
+            correspondence_address = str(raw_rp).strip() if is_valid_field(raw_rp) else ""
     elif source == 'Dimensions':
         if file_type == '.csv' or file_type == '.xlsx':
             correspondence_address = entry['Corresponding Authors']
@@ -1144,7 +1169,8 @@ def format_so_column(entry, source, file_type):         # Function for SO Column
         if file_type == '.bib':
             journal = entry.get('journal', '')
         elif file_type == '.csv':
-            journal = entry.get('Source title', '')
+            val = entry.get('Source title', '')
+            journal = str(val).upper().strip() if is_valid_field(val) else ""
     elif source == 'Dimensions':
         if file_type == '.csv' or file_type == '.xlsx':
             journal = entry['Source title']
@@ -1276,7 +1302,11 @@ def format_tc_column(entry, source, file_type):  # Function for TC Column (forma
             except:
                 times_cited = 0
         elif file_type == '.csv':
-            times_cited = str(entry.get('Cited by', ''))
+            val = entry.get('Cited by', 0)
+            try:
+                times_cited = int(float(val)) if is_valid_field(val) else 0
+            except ValueError:
+                times_cited = 0
     elif source == 'Dimensions':
         if file_type == '.csv' or file_type == '.xlsx':
             times_cited = entry['Times cited']
@@ -1308,7 +1338,8 @@ def format_ti_column(entry, source, file_type):  # Function for TI Column (forma
         if file_type == '.bib':
             title = entry.get('title', '')
         elif file_type == '.csv':
-            title = entry.get('Title', '')
+            val = entry.get('Title', '')
+            title = str(val).strip() if is_valid_field(val) else ""
     elif source == 'Dimensions':
         if file_type == '.csv' or file_type == '.xlsx':
             title = entry['Title']
@@ -1343,7 +1374,8 @@ def format_ut_column(entry, source, file_type):  # Function for UT Column (forma
             else:
                 publication_id = ''
         elif file_type == '.csv':
-            publication_id = str(entry.get('EID', ''))
+            val = entry.get('EID', '')
+            publication_id = str(val).strip() if is_valid_field(val) else ""
     elif source == 'Dimensions':
         if file_type == '.csv' or file_type == '.xlsx':
             publication_id = entry['Publication ID']
@@ -1371,7 +1403,8 @@ def format_vl_column(entry, source, file_type):  # Function for VL Column (forma
         if file_type == '.bib':
             volume = entry.get('volume', '')
         elif file_type == '.csv':
-            volume = str(entry.get('Volume', ''))
+            val = entry.get('Volume', '')
+            volume = str(val).strip() if is_valid_field(val) else ""
     elif source == 'Dimensions':
         if file_type == '.csv' or file_type == '.xlsx':
             volume = entry['Volume']
