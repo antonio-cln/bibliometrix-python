@@ -26,7 +26,8 @@ def format_ab_column(entry, source, file_type):         # Function for AB Column
             abstract = entry.get('AB', '')
     elif source == 'Scopus':
         if file_type == '.bib':
-            abstract = entry.get('abstract', '')
+            val = entry.get('abstract', '')
+            abstract = str(val).strip() if is_valid_field(val) else ""
         elif file_type == '.csv':
             val = entry.get('Abstract', '')
             abstract = str(val).strip() if is_valid_field(val) else ""
@@ -93,16 +94,12 @@ def format_af_column(entry, source, file_type):         # Function for AF Column
                     authors.append(author_dict)
     elif source == 'Scopus':
         if file_type == '.bib':
-            for person in entry.get('author', []).split(" and "):
-                parts = person.split(", ")
-                if len(parts) == 2:
-                    surname, first_names = parts
-                else:
-                    # Se ci sono più parti, la prima è il cognome, il resto sono nomi propri
-                    surname = parts[0]
-                    first_names = ' '.join(parts[1:])
-                author_dict = surname + ' ' + first_names
-                authors.append(author_dict)
+            raw_author = entry.get('author', '')
+            if is_valid_field(raw_author):
+                records = str(raw_author).replace('\n', ' ').split(" and ")
+                for rec in records:
+                    if rec.strip():
+                        authors.append(rec.strip())
         elif file_type == '.csv':
             raw_full = entry.get('Author full names', '')
             if is_valid_field(raw_full):
@@ -184,13 +181,23 @@ def format_au_column(entry, source, file_type):         # Function for AU Column
                     authors.append(author_dict)
     elif source == 'Scopus':
         if file_type == '.bib':
-            for person in entry.get('author', []).split(" and "):
-                surname, names = person.split(", ")
-                initials = ''
-                for name in names.split(" "):
-                    initials += name[0] + '.'
-                author_dict = surname + ' ' + initials
-                authors.append(author_dict)
+            raw_author = entry.get('author', '')
+            if is_valid_field(raw_author):
+                # Scopus BibTeX format: "Tawabini, B. and Smith, J.R. and Doe, J."
+                authors_list = str(raw_author).replace('\n', ' ').split(" and ")
+                for person in authors_list:
+                    person = person.strip()
+                    if person:
+                        # Convert "Surname, Initials" -> "Surname Initials"
+                        parts = person.split(", ")
+                        if len(parts) == 2:
+                            surname, initials = parts
+                            # Clean up punctuation like periods in initials if desired,
+                            # or keep them exactly as Scopus exports them ("Tawabini B.")
+                            initials = initials.replace(".", "").strip()
+                            authors.append(f"{surname} {initials}".strip())
+                        else:
+                            authors.append(person)
         elif file_type == '.csv':
             raw_authors = entry.get('Authors', '')
             if is_valid_field(raw_authors):
@@ -364,7 +371,10 @@ def format_bp_column(entry, source, file_type):         # Function for BP Column
                 begin_page = ''
     elif source == 'Scopus':
         if file_type == '.bib':
-            begin_page = entry.get('pages', '').split(" - ")[0]
+            pages = entry.get('pages', '')
+            if is_valid_field(pages):
+                parts = str(pages).split('-')
+                begin_page = parts[0].strip()
         elif file_type == '.csv':
             val = entry.get('Page start', '')
             begin_page = str(val).strip() if is_valid_field(val) else ""
@@ -418,8 +428,10 @@ def format_c1_column(entry, source, file_type):         # Function for C1 Column
             affiliations = entry.get('AD', '').split(".;")
     elif source == 'Scopus':
         if file_type == '.bib':
-            for affiliation in entry.get('affiliations', []).split("; "):
-                affiliations.append(affiliation)
+            raw_aff = entry.get('affiliation', '')
+            if is_valid_field(raw_aff):
+                # Often separated by semicolons or line breaks depending on export size
+                affiliations = [aff.strip() for aff in str(raw_aff).split(";") if aff.strip()]
         elif file_type == '.csv':
             raw_aff = entry.get('Affiliations', '')
             if is_valid_field(raw_aff):
@@ -455,7 +467,13 @@ def format_cr_column(entry, source, file_type):         # Function for CR Column
         if file_type == '.txt':
             cited_references = []
     elif source == 'Scopus':
-        if file_type == '.csv':
+        if file_type == '.bib':
+            val = entry.get('references', '')
+            if is_valid_field(val):
+                # Split records safely using standard lookahead syntax to ensure individual strings stay cohesive
+                split_refs = re.split(r';\s*(?=[A-Z][a-z]+,)', str(val))
+                cited_references = [ref.strip() for ref in split_refs if ref.strip()]
+        elif file_type == '.csv':
             raw_refs = entry.get('References', '')
             if is_valid_field(raw_refs):
                 # Scopus references contain deep tracking data separated by semicolons.
@@ -491,14 +509,11 @@ def format_de_column(entry, source, file_type):         # Function for DE Column
                 author_keywords.append(keyword)
     elif source == 'Scopus':
         if file_type == '.bib':
-            try:
-                for keyword in entry.get('author_keywords', []).split("; "):
-                    if keyword != "nan":
-                        author_keywords.append(keyword)
-                    else:
-                        author_keywords = []
-            except:
-                author_keywords = []
+            val = entry.get('keywords', '')
+            if is_valid_field(val):
+                # Scopus maps keywords inside BibTeX using commas or semicolons
+                delimiter = ";" if ";" in str(val) else ","
+                author_keywords = [k.strip() for k in str(val).split(delimiter) if k.strip()]
         elif file_type == '.csv':
             val = entry.get('Author Keywords', '')
             if is_valid_field(val):
@@ -541,7 +556,8 @@ def format_di_column(entry, source, file_type):         # Function for DI Column
             doi = entry.get('LID', '')
     elif source == 'Scopus':
         if file_type == '.bib':
-            doi = entry.get('doi', '')
+            val = entry.get('doi', '')
+            doi = str(val).strip() if is_valid_field(val) else ""
         elif file_type == '.csv':
             val = entry.get('DOI', '')
             doi = str(val).strip() if is_valid_field(val) else ""
@@ -570,7 +586,8 @@ def format_dt_column(entry, source, file_type):         # Function for DT Column
             document_type = entry.get('PT', '')
     elif source == 'Scopus':
         if file_type == '.bib':
-            document_type = entry.get('type', '')
+            val = entry.get('ENTRYTYPE', '')
+            document_type = str(val).title().strip() if is_valid_field(val) else "Article"
         elif file_type == '.csv':
             val = entry.get('Document Type', '')
             document_type = str(val).title().strip() if is_valid_field(val) else "Article"
@@ -648,10 +665,13 @@ def format_ep_column(entry, source, file_type):         # Function for EP Column
                 end_page = ''
     elif source == 'Scopus':
         if file_type == '.bib':
-            try:
-                end_page = entry.get('pages', '').split(" - ")[1]
-            except:
-                end_page = ''
+            pages = entry.get('pages', '')
+            if is_valid_field(pages):
+                parts = str(pages).split('-')
+                # Extract the last non-empty element to handle double dashes safely ("10--15")
+                parts = [p.strip() for p in parts if p.strip()]
+                if len(parts) > 1:
+                    end_page = parts[-1]
         elif file_type == '.csv':
             val = entry.get('Page end', '')
             end_page = str(val).strip() if is_valid_field(val) else ""
@@ -742,11 +762,9 @@ def format_id_column(entry, source, file_type):         # Function for ID Column
                 index_keywords.append(keyword)
     elif source == 'Scopus':
         if file_type == '.bib':
-            try:
-                for keyword in entry.get('keywords', []).split("; "):
-                    index_keywords.append(keyword)
-            except:
-                index_keywords = []
+            val = entry.get('index_keywords', '')
+            if is_valid_field(val):
+                index_keywords = [k.strip() for k in str(val).split(";") if k.strip()]
         elif file_type == '.csv':
             val = entry.get('Index Keywords', '')
             if is_valid_field(val):
@@ -789,7 +807,10 @@ def format_is_column(entry, source, file_type):         # Function for IS Column
             issue = entry.get('IP', '')
     elif source == 'Scopus':
         if file_type == '.bib':
-            issue = entry.get('number', '')
+            pages = entry.get('pages', '')
+            if is_valid_field(pages):
+                parts = str(pages).split('-')
+                issue = parts[0].strip()
         elif file_type == '.csv':
             val = entry.get('Issue', '')
             issue = str(val).strip() if is_valid_field(val) else ""
@@ -818,7 +839,8 @@ def format_ji_column(entry, source, file_type):         # Function for JI Column
             abbrev_source_title = entry.get('TA', '')
     elif source == 'Scopus':
         if file_type == '.bib':
-            abbrev_source_title = entry.get('abbrev_source_title', '')
+            val = entry.get('journal-abbreviation', '')
+            abbrev_source_title = str(val).strip() if is_valid_field(val) else ""
         elif file_type == '.csv':
             val = entry.get('Abbreviated Source Title', '')
             abbrev_source_title = str(val).strip() if is_valid_field(val) else ""
@@ -847,7 +869,8 @@ def format_la_column(entry, source, file_type):         # Function for LA Column
             language = entry.get('LA', '')
     elif source == 'Scopus':
         if file_type == '.bib':
-            language = entry.get('language', '')
+            val = entry.get('language', '')
+            language = str(val).strip() if is_valid_field(val) else "English"
         elif file_type == '.csv':
             val = entry.get('Language of Original Document', '')
             language = str(val).strip() if is_valid_field(val) else "English"
@@ -952,10 +975,9 @@ def format_pmid_column(entry, source, file_type):       # Function for PMID Colu
             pmid = entry.get('PMID', '')
     elif source == 'Scopus':
         if file_type == '.bib':
-            try:
-                pmid = entry.get('pmid', '')
-            except:
-                pmid = ''
+            val = entry.get('pubmed_id', '')
+            if is_valid_field(val):
+                pmid = str(val).strip()
         elif file_type == '.csv':
             val = entry.get('PubMed ID', '')
             if is_valid_field(val):
@@ -1015,7 +1037,11 @@ def format_py_column(entry, source, file_type):         # Function for PY Column
             publication_year = re.findall(r'\d{4}', publication_year)[0] if publication_year else ''
     elif source == 'Scopus':
         if file_type == '.bib':
-            publication_year = str(entry.get('year', ''))
+            val = entry.get('year', '')
+            try:
+                publication_year = int(float(val)) if is_valid_field(val) else None
+            except ValueError:
+                publication_year = None
         elif file_type == '.csv':
             val = entry.get('Year', '')
             try:
@@ -1071,7 +1097,8 @@ def format_rp_column(entry, source, file_type):         # Function for RP Column
             correspondence_address = ''
     elif source == 'Scopus':
         if file_type == '.bib':
-            correspondence_address = entry.get('correspondence_address', '')
+            raw_rp = entry.get('correspondence_address', '')
+            correspondence_address = str(raw_rp).strip() if is_valid_field(raw_rp) else ""
         elif file_type == '.csv':
             raw_rp = entry.get('Correspondence Address', '')
             correspondence_address = str(raw_rp).strip() if is_valid_field(raw_rp) else ""
@@ -1167,7 +1194,8 @@ def format_so_column(entry, source, file_type):         # Function for SO Column
             journal = entry.get('JT', '')
     elif source == 'Scopus':
         if file_type == '.bib':
-            journal = entry.get('journal', '')
+            val = entry.get('journal', entry.get('booktitle', ''))
+            journal = str(val).upper().strip() if is_valid_field(val) else ""
         elif file_type == '.csv':
             val = entry.get('Source title', '')
             journal = str(val).upper().strip() if is_valid_field(val) else ""
@@ -1296,11 +1324,19 @@ def format_tc_column(entry, source, file_type):  # Function for TC Column (forma
             times_cited = 0
     elif source == 'Scopus':
         if file_type == '.bib':
-            try:
-                cited_by = entry.get('note', '').split("; ")[0]
-                times_cited = cited_by.split(": ")[1]
-            except:
-                times_cited = 0
+            note_val = entry.get('note', '')
+            if is_valid_field(note_val) and "cited by" in str(note_val).lower():
+                match = re.search(r'cited [Bb]y\s+(\d+)', str(note_val))
+                if match:
+                    times_cited = int(match.group(1))
+            
+            # Check alternative common field
+            alt_val = entry.get('citedby', '')
+            if is_valid_field(alt_val):
+                try:
+                    times_cited = int(float(alt_val))
+                except ValueError:
+                    pass
         elif file_type == '.csv':
             val = entry.get('Cited by', 0)
             try:
@@ -1336,7 +1372,9 @@ def format_ti_column(entry, source, file_type):  # Function for TI Column (forma
             title = entry.get('TI', '')
     elif source == 'Scopus':
         if file_type == '.bib':
-            title = entry.get('title', '')
+            val = entry.get('title', '')
+        # Remove structural BibTeX curly brackets if present (e.g., "{Using machine learning}")
+            title = str(val).replace("{", "").replace("}", "").strip() if is_valid_field(val) else ""
         elif file_type == '.csv':
             val = entry.get('Title', '')
             title = str(val).strip() if is_valid_field(val) else ""
@@ -1367,12 +1405,8 @@ def format_ut_column(entry, source, file_type):  # Function for UT Column (forma
             publication_id = entry.get('PMID', '')
     elif source == 'Scopus':
         if file_type == '.bib':
-            url = entry.get('url', '')
-            match = re.search(r'eid=(.*?)&', url)
-            if match:
-                publication_id = match.group(1)
-            else:
-                publication_id = ''
+            val = entry.get('eid', entry.get('ID', ''))
+            publication_id = str(val).strip() if is_valid_field(val) else ""
         elif file_type == '.csv':
             val = entry.get('EID', '')
             publication_id = str(val).strip() if is_valid_field(val) else ""
@@ -1401,7 +1435,8 @@ def format_vl_column(entry, source, file_type):  # Function for VL Column (forma
             volume = entry.get('VI', '')
     elif source == 'Scopus':
         if file_type == '.bib':
-            volume = entry.get('volume', '')
+            val = entry.get('volume', '')
+            volume = str(val).strip() if is_valid_field(val) else ""
         elif file_type == '.csv':
             val = entry.get('Volume', '')
             volume = str(val).strip() if is_valid_field(val) else ""
