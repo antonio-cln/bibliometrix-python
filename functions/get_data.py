@@ -15,7 +15,7 @@ def get_data(input, database, df, reset_callback=None):
         A message indicating the status of the data upload.
     """
     file: list[FileInfo] | None = input.Dataset()
-    
+
     if file is None:
         text = ui.h5("Please select a file to begin importing your data.")
 
@@ -30,7 +30,13 @@ def get_data(input, database, df, reset_callback=None):
             if len(file) > 1:
                 # Process multiple files
                 json = process_multiple_files(file, source, author)
-                df.set(pd.read_json(StringIO(json)))
+                if df.get() is None:
+                    # Initialize it with the first query search
+                    df.set(pd.read_json(StringIO(json)))
+                else:
+                    current_df = df.get()
+                    temp_data = pd.concat([current_df, pd.read_json(StringIO(json))])
+                    df.set(temp_data)
                 # Reset all analysis results when new dataset is loaded
                 if reset_callback:
                     reset_callback()
@@ -43,7 +49,14 @@ def get_data(input, database, df, reset_callback=None):
                 # Process single file (original logic)
                 type = file[0]["name"]
                 json = biblio_json(file[0]["datapath"], source, type, author)
-                df.set(pd.read_json(StringIO(json)))
+                json = process_multiple_files(file, source, author)
+                if df.get() is None:
+                    # Initialize it with the first query search
+                    df.set(pd.read_json(StringIO(json)))
+                else:
+                    current_df = df.get()
+                    temp_data = pd.concat([current_df, pd.read_json(StringIO(json))])
+                    df.set(temp_data)
                 # Reset all analysis results when new dataset is loaded
                 if reset_callback:
                     reset_callback()

@@ -778,7 +778,7 @@ def search_wos_keywords(keyword, max_records=500, key=""):
         # Paginate forward by tracking starting index positions
         first_record += count
         time.sleep(0.5)  # Standard safety spacing for throttle limits
-    print(master_records)
+        
     df = pd.DataFrame(master_records)
     df = metatagextraction.metaTagExtraction(df, Field='SR')
     return df

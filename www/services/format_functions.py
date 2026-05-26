@@ -32,11 +32,13 @@ def format_ab_column(entry, source, file_type):         # Function for AB Column
             val = entry.get('Abstract', '')
             abstract = str(val).strip() if is_valid_field(val) else ""
     elif source == 'Dimensions':
-        if file_type == '.csv' or file_type == '.xlsx':
-            abstract = entry['Abstract']
+        if file_type == '.xlsx' or file_type == '.csv':
+            val = entry.get('Abstract', '')
+            abstract = str(val).strip() if is_valid_field(val) else ""
     elif source == 'The_Lens':
         if file_type == '.csv':
-            abstract = entry['Abstract']
+            val = entry.get('Abstract', '')
+            abstract = str(val).strip() if is_valid_field(val) else ""
     elif source == 'Cochrane':
         if file_type == '.txt':
             abstract = entry.get('AB', '')
@@ -111,25 +113,23 @@ def format_af_column(entry, source, file_type):         # Function for AF Column
                     if clean_name:
                         authors.append(clean_name)
     elif source == 'Dimensions':
-        if file_type == '.csv' or file_type == '.xlsx':
-            persons = entry['Authors'].split("; ")
-            for person in persons:
-                if person.strip() and len(person.split(", ")) == 2:
-                    surname, name = person.split(", ")
-                    # author_dict = {'Surname': surname, 'Name': name}
-                    author_dict = surname + ' ' + name
-                    authors.append(author_dict)
+        if file_type == '.xlsx' or file_type == '.csv':
+            raw_authors = entry.get('Authors', '')
+            if is_valid_field(raw_authors):
+                # Dimensions uses 'Authors' as its explicit full name container
+                persons = str(raw_authors).split("; ")
+                for person in persons:
+                    if person.strip():
+                        authors.append(person.strip())
     elif source == 'The_Lens':
         if file_type == '.csv':
-            persons = str(entry['Author/s']).split("; ")
-            for person in persons:
-                if person.strip() and len(person.strip().split(" ")) > 1:
-                    parts = person.split(" ")
-                    name = " ".join(parts[:-1])
-                    surname = parts[-1]
-                    # author_dict = {'Surname': surname, 'Name': name}
-                    author_dict = surname + ' ' + name
-                    authors.append(author_dict)
+            raw_authors = entry.get('Author/s', '')
+            if is_valid_field(raw_authors):
+                # Lens stores pristine full names directly inside the 'Author/s' column
+                persons = str(raw_authors).split("; ")
+                for person in persons:
+                    if is_valid_field(person):
+                        authors.append(person.strip())
     elif source == 'Cochrane':
         if file_type == '.txt':
             authors = ''
@@ -207,37 +207,43 @@ def format_au_column(entry, source, file_type):         # Function for AU Column
                     if author.strip():
                         authors.append(author.strip())
     elif source == 'Dimensions':
-        if file_type == '.csv' or file_type == '.xlsx':
-            # Pulizia preliminare dei dati
-            authors_raw = re.sub(r"\s+", " ", entry['Authors'])  # Rimuove spazi multipli
-            authors_raw = re.sub(r"[()]", "", authors_raw)       # Rimuove parentesi
-            
-            # Suddivisione degli autori
-            persons = authors_raw.split("; ")
-            for person in persons:
-                if person.strip() and len(person.split(", ")) == 2:
-                    surname, name = person.split(", ")
-                    initials = ''.join([part[0] for part in name.split()])
-                    author_dict = surname + ' ' + initials 
-                    authors.append(author_dict)
-                elif person.strip() and len(person.split(" ")) > 1:
-                    parts = person.split(" ")
-                    surname = parts[-1]
-                    initials = ''.join([part[0] + '.' for part in parts[:-1]])
-                    author_dict = surname + ' ' + initials
-                    authors.append(author_dict)
+        if file_type == '.xlsx' or file_type == '.csv':
+            raw_authors = entry.get('Authors', '')
+            if is_valid_field(raw_authors):
+                # Dimensions format: "Tawabini, Bassam; Smith, John R."
+                # Clear out excess whitespace and parenthetical metadata if present
+                authors_raw = re.sub(r"\s+", " ", str(raw_authors))
+                authors_raw = re.sub(r"[()]", "", authors_raw)
+                
+                persons = authors_raw.split("; ")
+                for person in persons:
+                    person = person.strip()
+                    if person and len(person.split(", ")) == 2:
+                        surname, name = person.split(", ")
+                        # Convert Firstname to initials: "Bassam" -> "B", "John R" -> "JR"
+                        initials = ''.join([part[0] for part in name.split() if part])
+                        authors.append(f"{surname} {initials}".strip())
+                    elif person:
+                        authors.append(person)
     elif source == 'The_Lens':
         if file_type == '.csv':
-            persons = str(entry['Author/s']).split("; ")
-            for person in persons:
-                if person != "null null":
-                    if person.strip():
-                        person = person.strip()
-                        surname = re.sub(r".*\s", "", person)
-                        name = re.sub(r"\s+[^ ]+$", "", person)
-                        name = re.sub(r"[^A-Z]", "", name)
-                        author_dict = f"{surname.upper()} {name}"
-                        authors.append(author_dict)
+            raw_authors = entry.get('Author/s', '')
+            if is_valid_field(raw_authors):
+                # Lens format: "Bassam Tawabini; John R. Smith"
+                persons = str(raw_authors).split("; ")
+                for person in persons:
+                    person = person.strip()
+                    if is_valid_field(person):
+                        parts = person.split(" ")
+                        if len(parts) > 1:
+                            # Extract the final word as the Surname
+                            surname = parts[-1]
+                            # Gather preceding parts and compile uppercase initials
+                            given_names = parts[:-1]
+                            initials = "".join([name[0].upper() for name in given_names if name])
+                            authors.append(f"{surname} {initials}".strip())
+                        else:
+                            authors.append(person)
     elif source == 'Cochrane':
         if file_type == '.txt':
             for author in entry.get('AU', '').split("; "):
@@ -379,12 +385,18 @@ def format_bp_column(entry, source, file_type):         # Function for BP Column
             val = entry.get('Page start', '')
             begin_page = str(val).strip() if is_valid_field(val) else ""
     elif source == 'Dimensions':
-        if file_type == '.csv' or file_type == '.xlsx':
-            if len(str(entry['Pagination']).split("-")) == 2:
-                begin_page, end_page = entry['Pagination'].split("-")
+        if file_type == '.xlsx' or file_type == '.csv':
+            pages = entry.get('Pages', '')
+            if is_valid_field(pages):
+                # Handles dashes, double dashes, and spaces safely ("215-224" or "215--224")
+                parts = re.split(r'-+', str(pages))
+                begin_page = parts[0].strip()
     elif source == 'The_Lens':
         if file_type == '.csv':
-            begin_page = entry['Start Page']
+            pages = entry.get('Pages', '')
+            if is_valid_field(pages):
+                parts = re.split(r'-+', str(pages))
+                begin_page = parts[0].strip()
     elif source == 'Cochrane':
         if file_type == '.txt':
             begin_page = ''
@@ -438,13 +450,16 @@ def format_c1_column(entry, source, file_type):         # Function for C1 Column
                 # Scopus isolates distinct institution addresses via semicolons
                 affiliations = [aff.strip() for aff in str(raw_aff).split("; ") if aff.strip()]
     elif source == 'Dimensions':
-        if file_type == '.csv' or file_type == '.xlsx':
-            persons = re.findall(r'\((.*?)\)', entry['Authors (Raw Affiliation)']) 
-            for person in persons:
-                affiliations.append(person)
+        if file_type == '.xlsx' or file_type == '.csv':
+            # Dimensions exports full institutional trees under 'Research Organizations'
+            raw_aff = entry.get('Research Organizations', '')
+            if is_valid_field(raw_aff):
+                affiliations = [aff.strip() for aff in str(raw_aff).split("; ") if aff.strip()]
     elif source == 'The_Lens':
         if file_type == '.csv':
-            affiliations = []
+            raw_aff = entry.get('Institution/s', '')
+            if is_valid_field(raw_aff):
+                affiliations = [aff.strip() for aff in str(raw_aff).split("; ") if aff.strip()]
     elif source == 'Cochrane':
         if file_type == '.txt':
             affiliations = []
@@ -519,23 +534,15 @@ def format_de_column(entry, source, file_type):         # Function for DE Column
             if is_valid_field(val):
                 author_keywords = [k.strip() for k in str(val).split("; ") if k.strip()]
     elif source == 'Dimensions':
-        if file_type == '.csv' or file_type == '.xlsx':
-            if str(entry['MeSH terms']) == 'nan':
-                author_keywords = []
-            else:
-                keywords = str(entry['MeSH terms']).split("; ")
-                for keyword in keywords:
-                    # keyword_dict = {'Terms': keyword}
-                    author_keywords.append(keyword)
+        if file_type == '.xlsx' or file_type == '.csv':
+            val = entry.get('Concepts', '')
+            if is_valid_field(val):
+                author_keywords = [k.strip() for k in str(val).split("; ") if k.strip()]
     elif source == 'The_Lens':
         if file_type == '.csv':
-            if str(entry['Keywords']) == 'null' or str(entry['Keywords']) == 'nan':
-                author_keywords = []
-            else:
-                keywords = str(entry['Keywords']).split("; ")
-                for keyword in keywords:
-                    # keyword_dict = {'Terms': keyword}
-                    author_keywords.append(keyword)
+            val = entry.get('Fields of Study', '')
+            if is_valid_field(val):
+                author_keywords = [k.strip() for k in str(val).split("; ") if k.strip()]
     elif source == 'Cochrane':
         if file_type == '.txt':
             for keyword in entry.get('KY', '').split(";"):
@@ -562,11 +569,13 @@ def format_di_column(entry, source, file_type):         # Function for DI Column
             val = entry.get('DOI', '')
             doi = str(val).strip() if is_valid_field(val) else ""
     elif source == 'Dimensions':
-        if file_type == '.csv' or file_type == '.xlsx':
-            doi = entry['DOI']
+        if file_type == '.xlsx' or file_type == '.csv':
+            val = entry.get('DOI', '')
+            doi = str(val).strip() if is_valid_field(val) else ""
     elif source == 'The_Lens':
         if file_type == '.csv':
-            doi = entry['DOI']
+            val = entry.get('DOI', '')
+            doi = str(val).strip() if is_valid_field(val) else ""
     elif source == 'Cochrane':
         if file_type == '.txt':
             doi = entry.get('DOI', '')
@@ -592,11 +601,15 @@ def format_dt_column(entry, source, file_type):         # Function for DT Column
             val = entry.get('Document Type', '')
             document_type = str(val).title().strip() if is_valid_field(val) else "Article"
     elif source == 'Dimensions':
-        if file_type == '.csv' or file_type == '.xlsx':
-            document_type = entry['Publication Type']
+        if file_type == '.xlsx' or file_type == '.csv':
+            map_ = {"article": "Article", "chapter": "Book Chapter", "monograph": "Book"}
+            val = str(entry.get('Publication Type', '')).lower().strip()
+            if is_valid_field(val):
+                document_type = map_.get(val, val.title())
     elif source == 'The_Lens':
         if file_type == '.csv':
-            document_type = entry['Publication Type']
+            val = entry.get('Publication Type', '')
+            document_type = str(val).title().strip() if is_valid_field(val) else "Article"
     elif source == 'Cochrane':
         if file_type == '.txt':
             document_type = ''
@@ -676,12 +689,21 @@ def format_ep_column(entry, source, file_type):         # Function for EP Column
             val = entry.get('Page end', '')
             end_page = str(val).strip() if is_valid_field(val) else ""
     elif source == 'Dimensions':
-        if file_type == '.csv' or file_type == '.xlsx':
-            if len(str(entry['Pagination']).split("-")) == 2:
-                begin_page, end_page = entry['Pagination'].split("-")
+        if file_type == '.xlsx' or file_type == '.csv':
+            pages = entry.get('Pages', '')
+            if is_valid_field(pages):
+                parts = re.split(r'-+', str(pages))
+                parts = [p.strip() for p in parts if p.strip()]
+                if len(parts) > 1:
+                    end_page = parts[-1]
     elif source == 'The_Lens':
         if file_type == '.csv':
-            end_page = entry['End Page']
+            pages = entry.get('Pages', '')
+            if is_valid_field(pages):
+                parts = re.split(r'-+', str(pages))
+                parts = [p.strip() for p in parts if p.strip()]
+                if len(parts) > 1:
+                    end_page = parts[-1]
     elif source == 'Cochrane':
         if file_type == '.txt':
             end_page = ''
@@ -771,22 +793,14 @@ def format_id_column(entry, source, file_type):         # Function for ID Column
                 index_keywords = [k.strip() for k in str(val).split("; ") if k.strip()]
     elif source == 'Dimensions':
         if file_type == '.csv' or file_type == '.xlsx':
-            if str(entry['MeSH terms']) == 'nan':
-                index_keywords = []
-            else:
-                keywords = str(entry['MeSH terms']).split("; ")
-                for keyword in keywords:
-                    # keyword_dict = {'Terms': keyword}
-                    index_keywords.append(keyword)
+            val = entry.get('Mesh terms', '')
+            if is_valid_field(val):
+                index_keywords = [k.strip() for k in str(val).split("; ") if k.strip()]
     elif source == 'The_Lens':
         if file_type == '.csv':
-            if str(entry['Keywords']) == 'null' or str(entry['Keywords']) == 'nan':
-                index_keywords = []
-            else:
-                keywords = str(entry['Keywords']).split("; ")
-                for keyword in keywords:
-                    # keyword_dict = {'Terms': keyword}
-                    index_keywords.append(keyword)
+            val = entry.get('Mesh Terms', '')
+            if is_valid_field(val):
+                index_keywords = [k.strip() for k in str(val).split("; ") if k.strip()]
     elif source == 'Cochrane':
         if file_type == '.txt':
             for keyword in entry.get('KY', '').split(";"):
@@ -815,11 +829,15 @@ def format_is_column(entry, source, file_type):         # Function for IS Column
             val = entry.get('Issue', '')
             issue = str(val).strip() if is_valid_field(val) else ""
     elif source == 'Dimensions':
-        if file_type == '.csv' or file_type == '.xlsx':
-            issue = entry['Issue'] if str(entry['Issue']) != "nan" else ''
+        if file_type == '.xlsx' or file_type == '.csv':
+            val = entry.get('Issue', '')
+            if is_valid_field(val):
+                issue = str(val).split('.')[0] if isinstance(val, float) else str(val).strip()
     elif source == 'The_Lens':
         if file_type == '.csv':
-            issue = entry['Issue Number'] if str(entry['Issue Number']) != "nan" else ''
+            val = entry.get('Issue Number', '')
+            if is_valid_field(val):
+                issue = str(val).split('.')[0] if isinstance(val, float) else str(val).strip()
     elif source == 'Cochrane':
         if file_type == '.txt':
             issue = ''
@@ -845,11 +863,13 @@ def format_ji_column(entry, source, file_type):         # Function for JI Column
             val = entry.get('Abbreviated Source Title', '')
             abbrev_source_title = str(val).strip() if is_valid_field(val) else ""
     elif source == 'Dimensions':
-        if file_type == '.csv' or file_type == '.xlsx':
-            abbrev_source_title = entry['Source title']
+        if file_type == '.xlsx' or file_type == '.csv':
+            val = entry.get('Source title', '')
+            abbrev_source_title = str(val).strip() if is_valid_field(val) else ""
     elif source == 'The_Lens':
         if file_type == '.csv':
-            abbrev_source_title = entry['Source Title']
+            val = entry.get('Journal ISSNS', entry.get('Journal Name', ''))
+            abbrev_source_title = str(val).strip() if is_valid_field(val) else ""
     elif source == 'Cochrane':
         if file_type == '.txt':
             abbrev_source_title = entry.get('SO', '')
@@ -879,7 +899,8 @@ def format_la_column(entry, source, file_type):         # Function for LA Column
             language = ''
     elif source == 'The_Lens':
         if file_type == '.csv':
-            language = ''
+            val = entry.get('Language', '')
+            language = str(val).title().strip() if is_valid_field(val) else "English"
     elif source == 'Cochrane':
         if file_type == '.txt':
             language = ''
@@ -984,11 +1005,17 @@ def format_pmid_column(entry, source, file_type):       # Function for PMID Colu
                 # Ensure it drops floats (.0) if pandas reads it as a numeric column
                 pmid = str(int(float(val)))
     elif source == 'Dimensions':
-        if file_type == '.csv' or file_type == '.xlsx':
-            pmid = entry['PMID'] if str(entry['PMID']) != "nan" else ''
+        if file_type == '.xlsx' or file_type == '.csv':
+            val = entry.get('PMID', '')
+            if is_valid_field(val):
+                # Drop trailing floats if read as numeric (e.g., 34567.0 -> '34567')
+                pmid = str(int(float(val)))
     elif source == 'The_Lens':
         if file_type == '.csv':
-            pmid = entry['PMID'] if str(entry['PMID']) != "nan" else ''
+            val = entry.get('PMID', '')
+            if is_valid_field(val):
+                # Protect against pandas converting numeric string blocks into floats
+                pmid = str(int(float(val)))
     elif source == 'Cochrane':
         if file_type == '.txt':
             pmid = ''
@@ -1049,11 +1076,19 @@ def format_py_column(entry, source, file_type):         # Function for PY Column
             except ValueError:
                 publication_year = None
     elif source == 'Dimensions':
-        if file_type == '.csv' or file_type == '.xlsx':
-            publication_year = entry['PubYear']
+        if file_type == '.xlsx' or file_type == '.csv':
+            val = entry.get('PubYear', '')
+            try:
+                publication_year = int(float(val)) if is_valid_field(val) else None
+            except ValueError:
+                publication_year = None
     elif source == 'The_Lens':
         if file_type == '.csv':
-            publication_year = entry['Publication Year']
+            val = entry.get('Publication Year', '')
+            try:
+                publication_year = int(float(val)) if is_valid_field(val) else None
+            except ValueError:
+                publication_year = None
     elif source == 'Cochrane':
         if file_type == '.txt':
             publication_year = entry.get('YR', '')
@@ -1103,8 +1138,9 @@ def format_rp_column(entry, source, file_type):         # Function for RP Column
             raw_rp = entry.get('Correspondence Address', '')
             correspondence_address = str(raw_rp).strip() if is_valid_field(raw_rp) else ""
     elif source == 'Dimensions':
-        if file_type == '.csv' or file_type == '.xlsx':
-            correspondence_address = entry['Corresponding Authors']
+        if file_type == '.xlsx' or file_type == '.csv':
+            raw_rp = entry.get('Corresponding Authors')
+            correspondence_address = str(raw_rp).strip() if is_valid_field(raw_rp) else ""
     elif source == 'The_Lens':
         if file_type == '.csv':
             correspondence_address = ''
@@ -1200,11 +1236,13 @@ def format_so_column(entry, source, file_type):         # Function for SO Column
             val = entry.get('Source title', '')
             journal = str(val).upper().strip() if is_valid_field(val) else ""
     elif source == 'Dimensions':
-        if file_type == '.csv' or file_type == '.xlsx':
-            journal = entry['Source title']
+        if file_type == '.xlsx' or file_type == '.csv':
+            val = entry.get('Source title', '')
+            journal = str(val).upper().strip() if is_valid_field(val) else ""
     elif source == 'The_Lens':
         if file_type == '.csv':
-            journal = entry['Source Title']
+            val = entry.get('Journal Name', entry.get('Source Title', ''))
+            journal = str(val).upper().strip() if is_valid_field(val) else ""
     elif source == 'Cochrane':
         if file_type == '.txt':
             journal = entry.get('SO', '')
@@ -1344,11 +1382,19 @@ def format_tc_column(entry, source, file_type):  # Function for TC Column (forma
             except ValueError:
                 times_cited = 0
     elif source == 'Dimensions':
-        if file_type == '.csv' or file_type == '.xlsx':
-            times_cited = entry['Times cited']
+        if file_type == '.xlsx' or file_type == '.csv':
+            val = entry.get('Times cited', 0)
+            try:
+                times_cited = int(float(val)) if is_valid_field(val) else 0
+            except ValueError:
+                times_cited = 0
     elif source == 'The_Lens':
         if file_type == '.csv':
-            times_cited = entry['Citing Works Count']
+            val = entry.get('Citing Works Count', 0)
+            try:
+                times_cited = int(float(val)) if is_valid_field(val) else 0
+            except ValueError:
+                times_cited = 0
     elif source == 'Cochrane':
         if file_type == '.txt':
             times_cited = 0
@@ -1379,11 +1425,13 @@ def format_ti_column(entry, source, file_type):  # Function for TI Column (forma
             val = entry.get('Title', '')
             title = str(val).strip() if is_valid_field(val) else ""
     elif source == 'Dimensions':
-        if file_type == '.csv' or file_type == '.xlsx':
-            title = entry['Title']
+        if file_type == '.xlsx' or file_type == '.csv':
+            val = entry.get('Title', '')
+            title = str(val).strip() if is_valid_field(val) else ""
     elif source == 'The_Lens':
         if file_type == '.csv':
-            title = entry['Title']
+            val = entry.get('Title', '')
+            title = str(val).strip() if is_valid_field(val) else ""
     elif source == 'Cochrane':
         if file_type == '.txt':
             title = entry.get('TI', '')
@@ -1411,11 +1459,13 @@ def format_ut_column(entry, source, file_type):  # Function for UT Column (forma
             val = entry.get('EID', '')
             publication_id = str(val).strip() if is_valid_field(val) else ""
     elif source == 'Dimensions':
-        if file_type == '.csv' or file_type == '.xlsx':
-            publication_id = entry['Publication ID']
+        if file_type == '.xlsx' or file_type == '.csv':
+            val = entry.get('Publication ID', '')
+            publication_id = str(val).strip() if is_valid_field(val) else ""
     elif source == 'The_Lens':
         if file_type == '.csv':
-            publication_id = entry['Lens ID']
+            val = entry.get('Lens ID', '')
+            publication_id = str(val).strip() if is_valid_field(val) else ""
     elif source == 'Cochrane':
         if file_type == '.txt':
             publication_id = entry.get('ID', '')
@@ -1441,11 +1491,16 @@ def format_vl_column(entry, source, file_type):  # Function for VL Column (forma
             val = entry.get('Volume', '')
             volume = str(val).strip() if is_valid_field(val) else ""
     elif source == 'Dimensions':
-        if file_type == '.csv' or file_type == '.xlsx':
-            volume = entry['Volume']
+        if file_type == '.xlsx' or file_type == '.csv':
+            val = entry.get('Volume', '')
+            if is_valid_field(val):
+                # Eliminate '.0' if read natively as an excel float value
+                volume = str(val).split('.')[0] if isinstance(val, float) else str(val).strip()
     elif source == 'The_Lens':
         if file_type == '.csv':
-            volume = entry['Volume']
+            val = entry.get('Volume', '')
+            if is_valid_field(val):
+                volume = str(val).split('.')[0] if isinstance(val, float) else str(val).strip()
     elif source == 'Cochrane':
         if file_type == '.txt':
             volume = ''
@@ -1653,56 +1708,58 @@ def process_single_file(data, source, file_type, author):
     # Extract relevant data and store it in a list of dictionaries
     entries = []
     for entry in list_bib_data:
-        entry_data = {
-            'AB': format_ab_column(entry, source, file_type),           # Abstract
-            'AF': format_af_column(entry, source, file_type),           # Authors Full Name
-            'AU': format_au_column(entry, source, file_type),           # Author/s
-            'AU_UN': format_au_un_column(entry, source, file_type),     # Authors University
-            'AU1_UN': format_au1_un_column(entry, source, file_type),   # Authors First University
-            'BP': format_bp_column(entry, source, file_type),           # Beginning Page
-            'EP': format_ep_column(entry, source, file_type),           # Ending Page
-            'CR': format_cr_column(entry, source, file_type),           # Cited References
-            'C1': format_c1_column(entry, source, file_type),           # Authors Affiliation
-            'DB': source,                                               # Database
-            'DE': format_de_column(entry, source, file_type),           # Author Keywords
-            'DI': format_di_column(entry, source, file_type),           # DOI
-            'DT': format_dt_column(entry, source, file_type),           # Document Type
-            'EM': format_em_column(entry, source, file_type),           # Email
-            'FU': format_fu_column(entry, source, file_type),           # Funding Details
-            'FX': format_fx_column(entry, source, file_type),           # Funding Text
-            'IS': format_is_column(entry, source, file_type),           # Issue
-            'JI': format_ji_column(entry, source, file_type),           # Abbreviated Journal Name
-            'ID': format_id_column(entry, source, file_type),           # Index Keywords
-            'LA': format_la_column(entry, source, file_type),           # Language
-            'OA': format_oa_column(entry, source, file_type),           # Open Access
-            'OI': format_oi_column(entry, source, file_type),           # Orcid ID
-            'PMID': format_pmid_column(entry, source, file_type),       # PubMed ID
-            'PU': format_pu_column(entry, source, file_type),           # Publisher
-            'PY': format_py_column(entry, source, file_type),           # Publication Year
-            'RP': format_rp_column(entry, source, file_type),           # Correspondence Address
-            'SC': format_sc_column(entry, source, file_type),           # Fields of Research
-            'SN': format_sn_column(entry, source, file_type),           # ISSN
-            'SO': format_so_column(entry, source, file_type),           # Journal
-            'SR': format_sr_column(entry, source, file_type),           # Author, Publication Year, Journal
-            'TC': format_tc_column(entry, source, file_type),           # Times Cited
-            'TI': format_ti_column(entry, source, file_type),           # Title
-            'UT': format_ut_column(entry, source, file_type),           # Publication ID
-            'VL': format_vl_column(entry, source, file_type),           # Volume
+        try:
+            entry_data = {
+                'AB': format_ab_column(entry, source, file_type),           # Abstract
+                'AF': format_af_column(entry, source, file_type),           # Authors Full Name
+                'AU': format_au_column(entry, source, file_type),           # Author/s
+                'AU_UN': format_au_un_column(entry, source, file_type),     # Authors University
+                'AU1_UN': format_au1_un_column(entry, source, file_type),   # Authors First University
+                'BP': format_bp_column(entry, source, file_type),           # Beginning Page
+                'EP': format_ep_column(entry, source, file_type),           # Ending Page
+                'CR': format_cr_column(entry, source, file_type),           # Cited References
+                'C1': format_c1_column(entry, source, file_type),           # Authors Affiliation
+                'DB': source,                                               # Database
+                'DE': format_de_column(entry, source, file_type),           # Author Keywords
+                'DI': format_di_column(entry, source, file_type),           # DOI
+                'DT': format_dt_column(entry, source, file_type),           # Document Type
+                'EM': format_em_column(entry, source, file_type),           # Email
+                'FU': format_fu_column(entry, source, file_type),           # Funding Details
+                'FX': format_fx_column(entry, source, file_type),           # Funding Text
+                'IS': format_is_column(entry, source, file_type),           # Issue
+                'JI': format_ji_column(entry, source, file_type),           # Abbreviated Journal Name
+                'ID': format_id_column(entry, source, file_type),           # Index Keywords
+                'LA': format_la_column(entry, source, file_type),           # Language
+                'OA': format_oa_column(entry, source, file_type),           # Open Access
+                'OI': format_oi_column(entry, source, file_type),           # Orcid ID
+                'PMID': format_pmid_column(entry, source, file_type),       # PubMed ID
+                'PU': format_pu_column(entry, source, file_type),           # Publisher
+                'PY': format_py_column(entry, source, file_type),           # Publication Year
+                'RP': format_rp_column(entry, source, file_type),           # Correspondence Address
+                'SC': format_sc_column(entry, source, file_type),           # Fields of Research
+                'SN': format_sn_column(entry, source, file_type),           # ISSN
+                'SO': format_so_column(entry, source, file_type),           # Journal
+                'SR': format_sr_column(entry, source, file_type),           # Author, Publication Year, Journal
+                'TC': format_tc_column(entry, source, file_type),           # Times Cited
+                'TI': format_ti_column(entry, source, file_type),           # Title
+                'UT': format_ut_column(entry, source, file_type),           # Publication ID
+                'VL': format_vl_column(entry, source, file_type),           # Volume
         }
+            # Add other columns from 'columns'
+            for column in columns:
+                if column not in entry_data:  # Avoid overwriting existing keys
+                    entry_data[column] = entry.get(column, None)
+            
+            # Remove the column based on the value of the 'author' field
+            if author == "surname":
+                entry_data.pop('AF', None)  # Remove 'AF' if it exists
+            elif author == "fullname":
+                entry_data.pop('AU', None)  # Remove 'AU' if it exists
 
-        # Add other columns from 'columns'
-        for column in columns:
-            if column not in entry_data:  # Avoid overwriting existing keys
-                entry_data[column] = entry.get(column, None)
-        
-        # Remove the column based on the value of the 'author' field
-        if author == "surname":
-            entry_data.pop('AF', None)  # Remove 'AF' if it exists
-        elif author == "fullname":
-            entry_data.pop('AU', None)  # Remove 'AU' if it exists
-
-        entries.append(entry_data)
-
+            entries.append(entry_data)
+        except Exception as e:
+            print(e)
+            print(entry.keys())
     return entries
 
 
@@ -1722,10 +1779,8 @@ def biblio_json(data, source, type, author):
     # Handle ZIP files - extract and process multiple files
     if type.endswith("zip"):
         return process_zip_file(data, source, author)
-    
     # Handle single files - use the new process_single_file function
     entries = process_single_file(data, source, type, author)
-    
     # Convert the list of dictionaries to JSON
     json_data = json.dumps(entries, ensure_ascii=False, indent=4)
     
