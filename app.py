@@ -736,8 +736,8 @@ with ui.tags.div(id="mainContent", class_="main-content"):
                                 {
                                     "pubmed": "PubMed",
                                     "open_alex": "Open Alex",
-                                    "wos": "Web of Science",
-                                    "scopus": "Scopus"
+                                    #"wos": "Web of Science",
+                                    #"scopus": "Scopus"
                                 },
                             )
                             ui.input_text(
@@ -853,6 +853,8 @@ with ui.tags.div(id="mainContent", class_="main-content"):
                     @render.ui
                     @reactive.event(input.start_button)
                     def show_table():
+                        df.set(df.get().reset_index(drop=True))
+                        print(df.get())
                         table_ui, _, _ = get_table(database, df)
                         return table_ui
 

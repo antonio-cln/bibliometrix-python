@@ -603,10 +603,9 @@ def search_openalex_keywords(keyword, max_records=500, key=""):
         page += 1
         time.sleep(0.2)
     
-    #df = pd.DataFrame(master_records)
+    df = pd.DataFrame(master_records)
     #df = metatagextraction.metaTagExtraction(df, Field='SR')
-    #return df
-    return master_records
+    return df
 
 # ==============================================================================
 # FETCHER: PUBMED SELECTION / EXTRACTION SYSTEM WITH EXPONENTIAL BACKOFF
@@ -696,10 +695,9 @@ def search_pubmed_keywords(keyword, max_records=500, key=""):
         print(f"-> Parsed and translated {len(master_records)} total records from PubMed...")
         time.sleep(0.3)  # Respect NCBI baseline throttling boundaries
         
-    #df = pd.DataFrame(master_records)
+    df = pd.DataFrame(master_records)
     #df = metatagextraction.metaTagExtraction(df, Field='SR')
-    #return df
-    return master_records
+    return df
 
 # ==============================================================================
 # FETCHER: WOS SEARCH QUERY SYSTEM WITH EXPONENTIAL BACKOFF
@@ -781,10 +779,9 @@ def search_wos_keywords(keyword, max_records=500, key=""):
         first_record += count
         time.sleep(0.5)  # Standard safety spacing for throttle limits
 
-    #df = pd.DataFrame(master_records)
+    df = pd.DataFrame(master_records)
     #df = metatagextraction.metaTagExtraction(df, Field='SR')
-    #return df
-    return master_records
+    return df
 
 # ==============================================================================
 # FETCHER: SCOPUS SEARCH ENGINE WITH EXPONENTIAL BACKOFF RETRY LOOP
@@ -867,10 +864,9 @@ def search_scopus_keywords(keyword, max_records=500, key=" "):
         start_index += count
         time.sleep(0.3)  # Maintain steady pacing for standard Scopus rate boundaries
         
-    #df = pd.DataFrame(master_records)
+    df = pd.DataFrame(master_records)
     #df = metatagextraction.metaTagExtraction(df, Field='SR')
-    #return df
-    return master_records
+    return df
 
 # ==============================================================================
 # PIPELINE EXECUTION ENGINE
