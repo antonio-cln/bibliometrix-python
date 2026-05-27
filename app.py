@@ -705,25 +705,20 @@ with ui.tags.div(id="mainContent", class_="main-content"):
                                 multiple=True
                             )
                             ui.p("Load raw data file(s) in .csv, .txt, or .zip format from WoS, Scopus, Dimensions, Lens.org, PubMed, or Cochrane Library", style="color: gray; font-size: 10px; margin-top: -20px;")
-                            ui.input_action_button("load_data", "Load data from dataset", icon=ICONS["play"])
-                            ui.input_action_button("start_button", "Start analysis", icon=ICONS["play"])
-                            ui.markdown("Move to analysis interface with loaded data.")
+                            ui.input_action_button("start_button", "Start", icon=ICONS["play"])
                             
                         elif input.select() == "1B":
                             ui.input_file("Dataset", "Choose a File", accept=[".xlsx"], multiple=True)
-                            ui.input_action_button("load_data", "Load data from file", icon=ICONS["play"])
-                            ui.input_action_button("start_button", "Start analysis", icon=ICONS["play"])
-                            ui.markdown("Move to analysis interface with loaded data.")
+                            ui.input_action_button("start_button", "Start", icon=ICONS["play"])
+                            ui.markdown("Load a collection in **XLSX** or **R** format previously exported from bibliometrix")
 
                         elif input.select() == "1C":
                             ui.h6("The use of bibliometric approaches in business and management disciplines.")
                             ui.p("Dataset 'Management'")
 
                             ui.markdown("*A collection of scientific articles about the use of bibliometric approaches in business and management disciplines. Period: 1985 - 2020 , Source WoS.*")
-                            ui.input_action_button("load_data", "Load data from sample", icon=ICONS["play"])
-
-                            ui.input_action_button("start_button", "Start analysis", icon=ICONS["play"])
-                            ui.markdown("Move to analysis interface with loaded data.")
+                            ui.input_action_button("start_button", "Start", icon=ICONS["play"])
+                            ui.markdown("Select a predefined sample dataset for testing purposes.")
 
                         elif input.select() == "1D":
                             ui.h6("API.")
@@ -737,7 +732,7 @@ with ui.tags.div(id="mainContent", class_="main-content"):
                                     "pubmed": "PubMed",
                                     "open_alex": "Open Alex",
                                     #"wos": "Web of Science",
-                                    #"scopus": "Scopus"
+                                    "scopus": "Scopus"
                                 },
                             )
                             ui.input_text(
@@ -752,10 +747,8 @@ with ui.tags.div(id="mainContent", class_="main-content"):
                                 placeholder="e.g., 'machine learning'",
                                 width="100%"
                             )
-                            ui.input_action_button("load_data", "Load data from query", icon=ICONS["play"])
-                            ui.markdown("Execute the query.")
-                            ui.input_action_button("start_button", "Start analysis", icon=ICONS["play"])
-                            ui.markdown("Move to analysis interface with loaded data.")
+                            ui.input_action_button("start_button", "Start", icon=ICONS["play"])
+                            ui.markdown("Query the selected source to fetch paper's data.")
                             
 
                         else:
@@ -787,23 +780,15 @@ with ui.tags.div(id="mainContent", class_="main-content"):
                         # ui.input_action_button("export_button", "Export", icon=ICONS["download"], disabled=True)
 
                 @render.express()
-                @reactive.event(input.load_data)
+                @reactive.event(input.start_button)
                 def mostra():
                     database = get_database(input)
-                    #ui.update_sidebar("sidebar_load_data", show=False)
+                    ui.update_sidebar("sidebar_load_data", show=False)
                     ui.update_action_button("export_button", disabled=False)
                     ui.markdown(f"<h3 style='text-align:center; color: #5567BB;'>Data of {database}</h3>")
 
                     if database == "Sample":
                         data = df.set(pd.read_excel("sources/samples/sample.xlsx"))
-                        ui.modal_show(
-                                ui.modal(
-                                    "The sample has been loaded.",
-                                    title="Operation Complete",
-                                    easy_close=True,  
-                                    footer=ui.modal_button("OK")  
-                                )   
-                            )
                         reset_all_analyses()  # Reset analysis results when sample is loaded
 
                     if database == "API":
@@ -815,32 +800,15 @@ with ui.tags.div(id="mainContent", class_="main-content"):
                             return
                         query_result = API_PARSER[input.api_source()](user_keywords, max_records=250, key=input.api_key())
 
-                        # If the current dataframe is empty
-                        if df.get() is None:
-                            # Initialize it with the first query search
-                            data = df.set(query_result)
-                            ui.modal_show(
-                                ui.modal(
-                                    "The dataset has been initialized with papers fetched from the query.",
-                                    title="Operation Complete",
-                                    easy_close=True,  
-                                    footer=ui.modal_button("OK")  
-                                )   
+                        data = df.set(query_result)
+                        ui.modal_show(
+                            ui.modal(
+                                "The dataset has been generated through the query.",
+                                title="Operation Complete",
+                                easy_close=True,  
+                                footer=ui.modal_button("OK")  
                             )
-                        else:
-                            # Append rows to existing dataframe
-                            current_df = df.get()
-                            temp_data = pd.concat([current_df, query_result])
-                            data = df.set(temp_data)
-                            ui.modal_show(
-                                ui.modal(
-                                    "The dataset has been enlarged with papers fetched from the query.",
-                                    title="Operation Complete",
-                                    easy_close=True,  
-                                    footer=ui.modal_button("OK")  
-                                )
-                            )
-                        
+                        )
                         reset_all_analyses()
 
                     @render.express()
@@ -853,8 +821,11 @@ with ui.tags.div(id="mainContent", class_="main-content"):
                     @render.ui
                     @reactive.event(input.start_button)
                     def show_table():
-                        df.set(df.get().reset_index(drop=True))
-                        print(df.get())
+                        # Fix SR error: SR appearing both as row Index and as column Label
+                        temp_df = df.get()
+                        temp_df.index.name = None
+                        df.set(temp_df)
+
                         table_ui, _, _ = get_table(database, df)
                         return table_ui
 

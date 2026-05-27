@@ -210,6 +210,19 @@ def translate_pubmed_record(pubmed_article):
                 aff_text = affiliation_info.findtext("Affiliation", "").strip()
                 if aff_text and aff_text not in c1_list:
                     c1_list.append(aff_text)
+                    
+    cr_list = []
+    comments_corrections = medline.find("CommentsCorrectionsList")
+    if comments_corrections is not None:
+        for ref in comments_corrections.findall("CommentsCorrections"):
+            # Target explicit citation records
+            if ref.get("RefType") == "Cites":
+                pmid_node = ref.find("PMID")
+                
+                # Only add if a valid target PMID exists
+                if pmid_node is not None and pmid_node.text:
+                    clean_pmid = pmid_node.text.strip()
+                    cr_list.append(f"PMID:{clean_pmid}")
 
     # Extract MeSH and Keywords (DE, ID)
     author_keywords = []
@@ -281,7 +294,7 @@ def translate_pubmed_record(pubmed_article):
         "AU": au_list,       
         "AF": af_list,       
         "C1": c1_list,       
-        "CR": [],  # Reference data strings are stripped out of standard efetch calls
+        "CR": cr_list,
         "DE": author_keywords, 
         "ID": mesh_keywords,  
         
