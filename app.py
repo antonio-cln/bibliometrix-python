@@ -760,7 +760,7 @@ with ui.tags.div(id="mainContent", class_="main-content"):
                                 1. <b>Import Raw Data</b>: Select 'Import raw data file(s)' to upload your dataset in .csv, .txt, or .zip format. Choose the correct database and author name format based on your source.<br>
                                 2. <b>Load Bibliometrix Data</b>: If you are working with Bibliometrix datasets, select the corresponding option to load your files.<br>
                                 3. <b>Use a Sample Dataset</b>: For testing purposes, you can load a predefined sample dataset.<br>
-                                4. <b>Use a OpenAlex Dataset</b>: You can load results from a OpenAlex query.<br>
+                                4. <b>Use a Query Dataset</b>: You can load results from a query.<br>
                                 5. <b>Export Options</b>: After processing, export your dataset as Excel (.xlsx) or R Data Format (.RData) for further analysis.
                                 </div>
                                 """

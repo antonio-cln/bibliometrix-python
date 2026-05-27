@@ -30,13 +30,7 @@ def get_data(input, database, df, reset_callback=None):
             if len(file) > 1:
                 # Process multiple files
                 json = process_multiple_files(file, source, author)
-                if df.get() is None:
-                    # Initialize it with the first query search
-                    df.set(pd.read_json(StringIO(json)))
-                else:
-                    current_df = df.get()
-                    temp_data = pd.concat([current_df, pd.read_json(StringIO(json))])
-                    df.set(temp_data)
+                df.set(pd.read_json(StringIO(json)))
                 # Reset all analysis results when new dataset is loaded
                 if reset_callback:
                     reset_callback()
@@ -50,13 +44,7 @@ def get_data(input, database, df, reset_callback=None):
                 type = file[0]["name"]
                 json = biblio_json(file[0]["datapath"], source, type, author)
                 json = process_multiple_files(file, source, author)
-                if df.get() is None:
-                    # Initialize it with the first query search
-                    df.set(pd.read_json(StringIO(json)))
-                else:
-                    current_df = df.get()
-                    temp_data = pd.concat([current_df, pd.read_json(StringIO(json))])
-                    df.set(temp_data)
+                df.set(pd.read_json(StringIO(json)))
                 # Reset all analysis results when new dataset is loaded
                 if reset_callback:
                     reset_callback()
