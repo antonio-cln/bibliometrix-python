@@ -890,23 +890,7 @@ if __name__ == "__main__":
     
     ## PubMed
     # Run the bulk search extractor
-    raw_standardized_data = search_pubmed_keywords(QUERY_KEYWORD, max_records=250)
-
-    # Create DataFrame and enforce rigid Web of Science structure
-    df = pd.DataFrame(raw_standardized_data, columns=WOS_COLUMNS)
-    
-    # Diagnostics overview
-    print("\nStandardized DataFrame has been built")
-    print(f"Shape: {df.shape[0]} rows x {df.shape[1]} columns")
-    
-    # Save directly out as a mock Web of Science field export CSV
-    df.to_csv("standardized_output_pubmed.csv", index=False)
-    
-    print(df)
-
-    ## OpenAlex
-    # Run the bulk search extractor
-    #raw_standardized_data = search_openalex_keywords(QUERY_KEYWORD, max_records=250)
+    #raw_standardized_data = search_pubmed_keywords(QUERY_KEYWORD, max_records=250)
 
     # Create DataFrame and enforce rigid Web of Science structure
     #df = pd.DataFrame(raw_standardized_data, columns=WOS_COLUMNS)
@@ -916,9 +900,25 @@ if __name__ == "__main__":
     #print(f"Shape: {df.shape[0]} rows x {df.shape[1]} columns")
     
     # Save directly out as a mock Web of Science field export CSV
-    #df.to_csv("standardized_output_openalex.csv", index=False)
+    #df.to_csv("standardized_output_pubmed.csv", index=False)
     
     #print(df)
+
+    ## OpenAlex
+    # Run the bulk search extractor
+    raw_standardized_data = search_openalex_keywords(QUERY_KEYWORD, max_records=250)
+
+    # Create DataFrame and enforce rigid Web of Science structure
+    df = pd.DataFrame(raw_standardized_data, columns=WOS_COLUMNS)
+    
+    # Diagnostics overview
+    print("\nStandardized DataFrame has been built")
+    print(f"Shape: {df.shape[0]} rows x {df.shape[1]} columns")
+    
+    # Save directly out as a mock Web of Science field export CSV
+    #df.to_csv("standardized_output_openalex.csv", index=False)
+    
+    print(df)
 
     ## Web of Science
     # Run the bulk search extractor

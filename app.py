@@ -801,14 +801,6 @@ with ui.tags.div(id="mainContent", class_="main-content"):
                         query_result = API_PARSER[input.api_source()](user_keywords, max_records=250, key=input.api_key())
 
                         data = df.set(query_result)
-                        ui.modal_show(
-                            ui.modal(
-                                "The dataset has been generated through the query.",
-                                title="Operation Complete",
-                                easy_close=True,  
-                                footer=ui.modal_button("OK")  
-                            )
-                        )
                         reset_all_analyses()
 
                     @render.express()
