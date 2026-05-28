@@ -15,7 +15,7 @@ def get_data(input, database, df, reset_callback=None):
         A message indicating the status of the data upload.
     """
     file: list[FileInfo] | None = input.Dataset()
-
+    
     if file is None:
         text = ui.h5("Please select a file to begin importing your data.")
 
@@ -43,7 +43,6 @@ def get_data(input, database, df, reset_callback=None):
                 # Process single file (original logic)
                 type = file[0]["name"]
                 json = biblio_json(file[0]["datapath"], source, type, author)
-                json = process_multiple_files(file, source, author)
                 df.set(pd.read_json(StringIO(json)))
                 # Reset all analysis results when new dataset is loaded
                 if reset_callback:

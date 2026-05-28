@@ -14,6 +14,12 @@ def is_valid_field(val):
         return False
     return True
 
+def clean_txt_string(val):
+    """Helper to normalize text lists or multi-line strings from text dumps."""
+    if isinstance(val, list):
+        return " ".join([str(v).strip() for v in val if v]).strip()
+    return str(val).strip()
+
 def format_ab_column(entry, source, file_type):         # Function for AB Column (format--> "Abstract")
     abstract = ''
     if source == 'Web_of_Science':
@@ -41,7 +47,8 @@ def format_ab_column(entry, source, file_type):         # Function for AB Column
             abstract = str(val).strip() if is_valid_field(val) else ""
     elif source == 'Cochrane':
         if file_type == '.txt':
-            abstract = entry.get('AB', '')
+            val = entry.get('AB', entry.get('ABSTRACT', ''))
+            abstract = clean_txt_string(val)
 
     return abstract
 
@@ -132,7 +139,7 @@ def format_af_column(entry, source, file_type):         # Function for AF Column
                         authors.append(person.strip())
     elif source == 'Cochrane':
         if file_type == '.txt':
-            authors = ''
+            format_au_column(entry, source, file_type)
     return authors
 
 
@@ -202,7 +209,7 @@ def format_au_column(entry, source, file_type):         # Function for AU Column
             raw_authors = entry.get('Authors', '')
             if is_valid_field(raw_authors):
                 # Scopus CSV lists authors as: "Tawabini B., Smith J.R."
-                authors_list = str(raw_authors).split(", ")
+                authors_list = str(raw_authors).split("; ")
                 for author in authors_list:
                     if author.strip():
                         authors.append(author.strip())
@@ -246,16 +253,20 @@ def format_au_column(entry, source, file_type):         # Function for AU Column
                             authors.append(person)
     elif source == 'Cochrane':
         if file_type == '.txt':
-            for author in entry.get('AU', '').split("; "):
-                if author:
-                    surname, *initials = author.split(" ")
-                    if len(initials) >= 2:
-                        #author_dict = {'Surname': initials[0], 'Name Initials': initials[1]}
-                        author_dict = initials[0] + ' ' + initials[1]
-                    else:
-                        #author_dict = {'Surname': surname, 'Name Initials': initials[0]}
-                        author_dict = surname + ' ' + initials[0]
-                    authors.append(author_dict)
+            raw_authors = entry.get('AU', entry.get('AUTHOR', ''))
+        
+            # Handle if the parser split lines into a list of strings
+            if isinstance(raw_authors, list):
+                for author in raw_authors:
+                    if is_valid_field(author):
+                        authors.append(str(author).strip())
+            elif is_valid_field(raw_authors):
+                # Handle if it came in as a single semicolon/comma delimited string
+                delimiter = ";" if ";" in str(raw_authors) else ","
+                persons = str(raw_authors).split(delimiter)
+                for person in persons:
+                    if person.strip():
+                        authors.append(person.strip())
 
     return authors
 
@@ -399,7 +410,11 @@ def format_bp_column(entry, source, file_type):         # Function for BP Column
                 begin_page = parts[0].strip()
     elif source == 'Cochrane':
         if file_type == '.txt':
-            begin_page = ''
+            pages = entry.get('PG', entry.get('PAGES', ''))
+            clean_pages = clean_txt_string(pages)
+            if clean_pages:
+                parts = re.split(r'-+', clean_pages)
+                begin_page = parts[0].strip()
 
     return begin_page
 
@@ -545,8 +560,11 @@ def format_de_column(entry, source, file_type):         # Function for DE Column
                 author_keywords = [k.strip() for k in str(val).split("; ") if k.strip()]
     elif source == 'Cochrane':
         if file_type == '.txt':
-            for keyword in entry.get('KY', '').split(";"):
-                author_keywords.append(keyword)
+            val = entry.get('KY', entry.get('KEYWORDS', ''))
+            if isinstance(val, list):
+                author_keywords = [k.strip() for k in val if k.strip()]
+            elif is_valid_field(val):
+                author_keywords = [k.strip() for k in str(val).split(";") if k.strip()]
 
     return author_keywords
 
@@ -578,7 +596,8 @@ def format_di_column(entry, source, file_type):         # Function for DI Column
             doi = str(val).strip() if is_valid_field(val) else ""
     elif source == 'Cochrane':
         if file_type == '.txt':
-            doi = entry.get('DOI', '')
+            val = entry.get('DO', entry.get('DOI', ''))
+            doi = clean_txt_string(val)
 
     return doi
 
@@ -706,7 +725,13 @@ def format_ep_column(entry, source, file_type):         # Function for EP Column
                     end_page = parts[-1]
     elif source == 'Cochrane':
         if file_type == '.txt':
-            end_page = ''
+            pages = entry.get('PG', entry.get('PAGES', ''))
+            clean_pages = clean_txt_string(pages)
+            if clean_pages:
+                parts = re.split(r'-+', clean_pages)
+                parts = [p.strip() for p in parts if p.strip()]
+                if len(parts) > 1:
+                    end_page = parts[-1]
 
     return end_page
 
@@ -803,8 +828,7 @@ def format_id_column(entry, source, file_type):         # Function for ID Column
                 index_keywords = [k.strip() for k in str(val).split("; ") if k.strip()]
     elif source == 'Cochrane':
         if file_type == '.txt':
-            for keyword in entry.get('KY', '').split(";"):
-                index_keywords.append(keyword)
+            index_keywords = format_de_column(entry, source, file_type)
 
     return index_keywords
 
@@ -840,7 +864,8 @@ def format_is_column(entry, source, file_type):         # Function for IS Column
                 issue = str(val).split('.')[0] if isinstance(val, float) else str(val).strip()
     elif source == 'Cochrane':
         if file_type == '.txt':
-            issue = ''
+            val = entry.get('VL', entry.get('VOLUME', ''))
+            issue = clean_txt_string(val)
 
     return issue
 
@@ -872,7 +897,8 @@ def format_ji_column(entry, source, file_type):         # Function for JI Column
             abbrev_source_title = str(val).strip() if is_valid_field(val) else ""
     elif source == 'Cochrane':
         if file_type == '.txt':
-            abbrev_source_title = entry.get('SO', '')
+            val = entry.get('SO', entry.get('JOURNAL', ''))
+            abbrev_source_title = clean_txt_string(val)
     
     return abbrev_source_title
 
@@ -1091,8 +1117,13 @@ def format_py_column(entry, source, file_type):         # Function for PY Column
                 publication_year = None
     elif source == 'Cochrane':
         if file_type == '.txt':
-            publication_year = entry.get('YR', '')
-
+            val = entry.get('YR', entry.get('YEAR', ''))
+            clean_val = clean_txt_string(val)
+            try:
+                publication_year = int(float(clean_val)) if clean_val else None
+            except ValueError:
+                publication_year = None
+            
     return publication_year
 
 
@@ -1245,7 +1276,8 @@ def format_so_column(entry, source, file_type):         # Function for SO Column
             journal = str(val).upper().strip() if is_valid_field(val) else ""
     elif source == 'Cochrane':
         if file_type == '.txt':
-            journal = entry.get('SO', '')
+            val = entry.get('SO', entry.get('JOURNAL', ''))
+            journal = clean_txt_string(val).upper()
             
     return journal
 
@@ -1434,7 +1466,8 @@ def format_ti_column(entry, source, file_type):  # Function for TI Column (forma
             title = str(val).strip() if is_valid_field(val) else ""
     elif source == 'Cochrane':
         if file_type == '.txt':
-            title = entry.get('TI', '')
+            val = entry.get('TI', entry.get('TITLE', ''))
+            title = clean_txt_string(val)
 
     return title
 
@@ -1468,8 +1501,8 @@ def format_ut_column(entry, source, file_type):  # Function for UT Column (forma
             publication_id = str(val).strip() if is_valid_field(val) else ""
     elif source == 'Cochrane':
         if file_type == '.txt':
-            publication_id = entry.get('ID', '')
-
+            val = entry.get('ID', '')
+            publication_id = clean_txt_string(val)
     return publication_id
 
 

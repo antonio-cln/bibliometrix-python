@@ -32,18 +32,52 @@ def get_three_field_plot(df, left_field, middle_field, right_field, left_field_i
 
     # Document x Attribute matrix Field LEFT
     WL = cocMatrix(df, fields[0], binary=True, n=n[0])
-    n1 = min(n[0], WL.shape[1])
-    TopL = WL.columns.tolist()
-
     # Document x Attribute matrix Field MIDDLE
     WM = cocMatrix(df, fields[1], binary=True, n=n[1])
+    # Document x Attribute matrix Field RIGHT
+    WR = cocMatrix(df, fields[2], binary=True, n=n[2])
+
+    empty_field = None
+    if WL is None: empty_field = fields[0]
+    elif WM is None: empty_field = fields[1]
+    elif WR is None: empty_field = fields[2]
+
+    if empty_field is not None:
+        # Create a blank visual canvas
+        fig = go.Figure()
+        
+        # Inject an explicit text warning into the middle of the empty graph
+        fig.add_annotation(
+            text=f"⚠️ Cannot Generate Plot<br><br>The selected field <b>'{empty_field}'</b> contains no data in your dataset.",
+            xref="paper", yref="paper",
+            x=0.5, y=0.5,
+            showarrow=False,
+            font=dict(size=16, color="#D9534F", family="Arial"),
+            align="center"
+        )
+        
+        # Clean up the background layout so it looks like a clean message card
+        fig.update_layout(
+            xaxis={"visible": False},
+            yaxis={"visible": False},
+            plot_bgcolor="rgba(245,245,245,0.5)",
+            paper_bgcolor="white",
+            height=500
+        )
+        
+        # Wrap it inside a FigureWidget exactly like your standard output expects
+        fig = go.FigureWidget(fig)
+        fig._config = fig._config | {'displaylogo': False}
+        return fig
+
+    n3 = min(n[2], WR.shape[1])
+    TopR = WR.columns.tolist()
+
     n2 = min(n[1], WM.shape[1])
     TopM = WM.columns.tolist()
 
-    # Document x Attribute matrix Field RIGHT
-    WR = cocMatrix(df, fields[2], binary=True, n=n[2])
-    n3 = min(n[2], WR.shape[1])
-    TopR = WR.columns.tolist()
+    n1 = min(n[0], WL.shape[1])
+    TopL = WL.columns.tolist()
 
     # Co-Occurrence Matrices
     LM = WL.T.dot(WM)

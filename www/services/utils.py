@@ -41,7 +41,7 @@ from shiny.types import FileInfo
 from pyvis.network import Network
 from sklearn.cluster import KMeans
 from plotly.colors import n_colors
-from shiny import reactive, render
+from shiny import reactive, render, req
 from scipy.spatial import ConvexHull
 from nltk.stem import SnowballStemmer
 from itables import JavascriptFunction

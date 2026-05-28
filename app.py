@@ -1535,6 +1535,15 @@ with ui.tags.div(id="mainContent", class_="main-content"):
 
                             result = get_three_field_plot(df, left_field, middle_field, right_field, left_field_items, middle_field_items, right_field_items)
                             three_field_plot_results.set(result)
+                        except Exception as e:
+                            ui.modal_show(
+                            ui.modal(
+                                str(e),
+                                title="Operation Failed",
+                                easy_close=True,  
+                                footer=ui.modal_button("OK")  
+                            )
+                        )
                         finally:
                             ui.modal_remove()
 

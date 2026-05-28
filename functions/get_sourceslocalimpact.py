@@ -80,6 +80,24 @@ def get_sources_local_impact(df, num_of_sources_local_impact, source_local_impac
         impact_column = 'TC'
 
     source_counts_visualization = source_counts_visualization.head(num_of_sources_local_impact)
+    n = len(source_counts_visualization)
+
+    if n == 0 or source_counts_visualization[impact_column].max() == 0:
+        metric_label = source_local_impact.replace('_', ' ').title()
+        fig = go.Figure()
+        fig.add_annotation(
+            text=f"⚠️ Cannot Generate Plot<br><br>The calculated <b>'{metric_label}'</b> for all identified sources evaluates to <b>0</b>.<br>"
+            "There are no non-zero citation metrics available to plot.",
+            xref="paper", yref="paper", x=0.5, y=0.5, showarrow=False,
+            font=dict(size=16, color="#D9534F", family="Segoe UI, Arial"), align="center"
+        )
+        fig.update_layout(
+            xaxis={"visible": False}, yaxis={"visible": False},
+            plot_bgcolor="rgba(245,245,245,0.5)", paper_bgcolor="white", height=500
+        )
+        fig = go.FigureWidget(fig)
+        fig._config = fig._config | {'displaylogo': False}
+        return fig, source_counts
 
     # Truncate long source names and add line breaks every 50 characters
     def wrap_label(label, width=50):

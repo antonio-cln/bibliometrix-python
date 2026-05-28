@@ -25,20 +25,60 @@ def get_local_cited_authors(df, num_of_cited_authors, fast_search=False):
     # Fill missing values
     M['TC'] = M['TC'].fillna(0)
 
-    # Create a histogram network
-    H = histNetwork(df, min_citations=loccit, sep=";", network=False)
-    LCS = H['histData']
-    M = H['M']
-    
-    # Split authors and repeat local citations
-    AU = M['AU'].explode()
-    n = AU.groupby(level=0).size()
-    
-    # Create DataFrame for authors and local citations
-    df_authors = pd.DataFrame({'AU': AU, 'LCS': M['LCS'].repeat(n).values})
-    author_counts = df_authors.groupby('AU')['LCS'].sum().reset_index()
-    author_counts.columns = ["Authors", "N. of Local Citations"]
-    author_counts = author_counts.sort_values(by="N. of Local Citations", ascending=False)
+    try:
+        # Create a histogram network
+        H = histNetwork(df, min_citations=loccit, sep=";", network=False)
+        LCS = H['histData']
+        M = H['M']
+        
+        # Split authors and repeat local citations
+        AU = M['AU'].explode()
+        n = AU.groupby(level=0).size()
+        
+        # Create DataFrame for authors and local citations
+        df_authors = pd.DataFrame({'AU': AU, 'LCS': M['LCS'].repeat(n).values})
+        author_counts = df_authors.groupby('AU')['LCS'].sum().reset_index()
+        author_counts.columns = ["Authors", "N. of Local Citations"]
+        author_counts = author_counts.sort_values(by="N. of Local Citations", ascending=False)
+        
+    except Exception as e:
+        # If histNetwork or pandas formatting crashes, return a clean visual placeholder error
+        fig = go.Figure()
+        fig.add_annotation(
+            text="⚠️ Analysis Interrupted<br><br>The local cited authors network could not be calculated.<br>"
+                 "This usually happens when the source reference column (CR/ref) is empty or contains malformed datatypes.",
+            xref="paper", yref="paper",
+            x=0.5, y=0.5,
+            showarrow=False,
+            font=dict(size=14, color="#D9534F", family="Segoe UI, Arial"),
+            align="center"
+        )
+        fig.update_layout(
+            xaxis={"visible": False},
+            yaxis={"visible": False},
+            plot_bgcolor="rgba(245,245,245,0.5)",
+            paper_bgcolor="white",
+            height=400,
+            margin=dict(l=20, r=20, t=20, b=20)
+        )
+        fig = go.FigureWidget(fig)
+        fig._config = fig._config | {'displaylogo': False}
+        
+        # Create an empty dataframe with structural matching columns
+        empty_table = pd.DataFrame(columns=["Authors", "N. of Local Citations"])
+        return fig, empty_table
+
+    # If execution completes successfully but nothing passes back (empty results)
+    if author_counts.empty:
+        fig = go.Figure()
+        fig.add_annotation(
+            text="⚠️ No Data Found<br><br>No local citation networks match your search parameters.",
+            xref="paper", yref="paper", x=0.5, y=0.5, showarrow=False,
+            font=dict(size=14, family="Segoe UI, Arial"), align="center"
+        )
+        fig.update_layout(xaxis={"visible": False}, yaxis={"visible": False}, height=400)
+        fig = go.FigureWidget(fig)
+        return fig, pd.DataFrame(columns=["Authors", "N. of Local Citations"])
     
     # Limit the number of authors to display
     if num_of_cited_authors > len(author_counts):

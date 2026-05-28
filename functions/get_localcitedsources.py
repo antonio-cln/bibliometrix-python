@@ -31,6 +31,33 @@ def get_local_cited_sources(df, num_of_cited_sources):
         source_counts = data["CR_SO"].str.split(";").explode().value_counts().reset_index()
         source_counts.columns = ["Sources", "N. of Local Citations"]
 
+    if source_counts.empty:
+        # Create a clean placeholder canvas message
+        fig = go.Figure()
+        fig.add_annotation(
+            text="⚠️ No Data Available<br><br>The <b>'CR_SO'</b> (Cited Periodicals) attribute is completely empty.<br>Local citations cannot be calculated for this dataset.",
+            xref="paper", yref="paper",
+            x=0.5, y=0.5,
+            showarrow=False,
+            font=dict(size=15, color="#D9534F", family="Segoe UI, Arial"),
+            align="center"
+        )
+        fig.update_layout(
+            xaxis={"visible": False},
+            yaxis={"visible": False},
+            plot_bgcolor="rgba(245,245,245,0.5)",
+            paper_bgcolor="white",
+            height=400
+        )
+        fig = go.FigureWidget(fig)
+        fig._config = fig._config | {'displaylogo': False}
+        
+        # Create a valid empty dataframe matching your expected table columns
+        empty_table = pd.DataFrame(columns=["Sources", "N. of Local Citations"])
+        
+        # Return both elements so your app logic doesn't unpack a mismatch error
+        return fig, empty_table
+    
     # Limit the number of sources to display
     if num_of_cited_sources > len(source_counts):
         num_of_cited_sources = len(source_counts)

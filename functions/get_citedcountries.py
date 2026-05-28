@@ -17,6 +17,18 @@ def get_cited_countries(df, num_of_cited_countries, cited_countries_measure):
     df = metaTagExtraction(df, "AU1_CO")
     df = df.get()
 
+    if "AU1_CO" not in df.columns or df["AU1_CO"].dropna().empty:
+        fig = go.Figure()
+        fig.add_annotation(
+            text="⚠️ Cannot Calculate Country Citations<br><br>The field <b>'AU1_CO'</b> (First Author Country) is blank or missing from your dataset.",
+            xref="paper", yref="paper", x=0.5, y=0.5, showarrow=False,
+            font=dict(size=14, color="#D9534F", family="Segoe UI, Arial"), align="center"
+        )
+        fig.update_layout(xaxis={"visible": False}, yaxis={"visible": False}, plot_bgcolor="rgba(245,245,245,0.5)", height=400)
+        fig = go.FigureWidget(fig)
+        fig._config = fig._config | {'displaylogo': False}
+        return fig, pd.DataFrame(columns=["Country", "TotalCitation", "AverageArticleCitations"])
+    
     # Prepare the table for ranking countries
     tab = (
         df.dropna(subset=["AU1_CO"])
@@ -47,7 +59,42 @@ def get_cited_countries(df, num_of_cited_countries, cited_countries_measure):
     x_values = tab.iloc[:, 1]
     n = len(tab)
 
+    if n == 0 or x_values.max() == 0:
+        fig = go.Figure()
+        
+        # Inject the explicit text warning into the middle of the empty graph
+        fig.add_annotation(
+            text="⚠️ Cannot Generate Plot<br><br>The selected metrics contain no citation data (all records show <b>0 citations</b>).",
+            xref="paper", yref="paper",
+            x=0.5, y=0.5,
+            showarrow=False,
+            font=dict(size=16, color="#D9534F", family="Segoe UI, Arial"),
+            align="center"
+        )
+        
+        # Clean up the background layout so it looks like a clean message card
+        fig.update_layout(
+            xaxis={"visible": False},
+            yaxis={"visible": False},
+            plot_bgcolor="rgba(245,245,245,0.5)",
+            paper_bgcolor="white",
+            height=500
+        )
+        
+        # Wrap it inside a FigureWidget exactly like your standard output expects
+        fig = go.FigureWidget(fig)
+        fig._config = fig._config | {'displaylogo': False}
+        return fig, table
+
     fig = go.Figure()
+
+    has_no_citations = (x_values.max() == 0)
+    if has_no_citations:
+        fig.add_annotation(
+            text="ℹ️ Note: All identified countries have 0 citations recorded in this dataset.",
+            xref="paper", yref="paper", x=0.5, y=0.95, showarrow=False,
+            font=dict(size=12, color="#555555", family="Segoe UI, Arial"), align="center"
+        )
 
     # Add thick lines from y-label to marker
     for i, (country, value) in enumerate(zip(y_labels, x_values)):
@@ -61,6 +108,9 @@ def get_cited_countries(df, num_of_cited_countries, cited_countries_measure):
             layer="below",
         )
 
+    max_val = x_values.max()
+    size_denominator = max_val if (max_val and max_val != 0 and not pd.isna(max_val)) else 1
+
     # Add scatter markers with text
     fig.add_trace(
         go.Scatter(
@@ -68,7 +118,7 @@ def get_cited_countries(df, num_of_cited_countries, cited_countries_measure):
             y=list(range(n)),
             mode="markers+text",
             marker=dict(
-                size=18 + 6 * (x_values / x_values.max()),
+                size=18 + 6 * (x_values / size_denominator),
                 color=x_values,
                 colorscale=[[0, "#B3D1F2"], [1, "#5567BB"]],
                 line=dict(width=1, color="#E0E0E0"),
@@ -100,10 +150,14 @@ def get_cited_countries(df, num_of_cited_countries, cited_countries_measure):
 
     # Set x-axis ticks
     max_x = x_values.max()
-    tick_step = 5 if max_x <= 50 else int(max_x // 10) or 1
-    x_ticks = list(range(0, int(max_x) + tick_step, tick_step))
-    if x_ticks[-1] < max_x:
-        x_ticks.append(int(max_x))
+
+    if has_no_citations:
+        x_ticks = [0, 1, 2]
+    else:
+        tick_step = 5 if max_x <= 50 else int(max_x // 10) or 1
+        x_ticks = list(range(0, int(max_x) + tick_step, tick_step))
+        if x_ticks[-1] < max_x:
+            x_ticks.append(int(max_x))
 
     fig.update_yaxes(
         tickvals=list(range(n)),
@@ -124,7 +178,7 @@ def get_cited_countries(df, num_of_cited_countries, cited_countries_measure):
     fig.update_layout(
         plot_bgcolor='white',
         font=dict(color="#222222", size=14, family="Segoe UI, Arial"),
-        margin=dict(l=0, r=0, t=0, b=0),
+        margin=dict(l=180, r=40, t=40, b=40),
         height=50 + 90 * n,
         showlegend=False,
         hoverlabel=dict(
@@ -138,5 +192,4 @@ def get_cited_countries(df, num_of_cited_countries, cited_countries_measure):
     fig = go.FigureWidget(fig)
     fig._config = fig._config | {'modeBarButtonsToRemove': ['pan', 'select', 'lasso2d', 'toImage'],
                                  'displaylogo': False}
-    
     return fig, table
