@@ -1,5 +1,5 @@
 from .utils import *
-from . import metatagextraction
+from .metatagextraction import SR
 
 
 # ==============================================================================
@@ -509,7 +509,7 @@ def translate_scopus_record(item):
 
     # Handle Calculated Short Reference (SR) field
     first_author_surname = au_list[0].split()[0] if au_list else "Anon"
-    calculated_sr = f"{first_author_surname}, {pub_year}, {journal_short}"
+    # calculated_sr = f"{first_author_surname}, {pub_year}, {journal_short}"
 
     return {
         "DB": "SCOPUS",
@@ -545,7 +545,7 @@ def translate_scopus_record(item):
 # ==============================================================================
 # FETCHER: ENGINE KEYWORD SEARCH WITH PAGINATION LOOP
 # ==============================================================================
-def search_openalex_keywords(keyword, max_records=500, key=""):
+def search_openalex_keywords(keyword: str, max_records=500, key="") -> pd.DataFrame:
     ## DEALING WITH PAGINATION
     master_records = []
     page = 1
@@ -591,8 +591,9 @@ def search_openalex_keywords(keyword, max_records=500, key=""):
                 print(f"[CONNECTION ERROR] {e} on page {page}. Retrying in {sleep_time}s... (Attempt {attempt + 1}/{max_retries})")
                 time.sleep(sleep_time)
 
-        if response.status_code != 200:
-            print(f"Crawl broke on page {page}. Status: {response.status_code}")
+        if response is None or response.status_code != 200:
+            status = response.status_code if response else "No response"
+            print(f"Crawl broke on page {page}. Status: {status}")
             break
             
         payload = response.json()
@@ -617,7 +618,7 @@ def search_openalex_keywords(keyword, max_records=500, key=""):
         time.sleep(0.2)
     
     df = pd.DataFrame(master_records)
-    df = metatagextraction.SR(df)
+    df = SR(df)
     return df
 
 # ==============================================================================

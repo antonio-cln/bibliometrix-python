@@ -46,7 +46,7 @@ def metaTagExtraction(df, Field="AU_CO", sep=";", aff_disamb=False):
     return df
 
 
-def SR(M):
+def SR(M: pd.DataFrame) -> pd.DataFrame:
     listAU = M["AU"].apply(lambda l: [x.strip() for x in l])
     if M["DB"].iloc[0].lower() == "scopus":
         listAU = listAU.apply(lambda l: [x.replace(" ", ",").replace(",,", ",").replace(" ", "") for x in l])
