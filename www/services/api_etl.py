@@ -710,7 +710,7 @@ def search_pubmed_keywords(keyword, max_records=500, key=""):
         time.sleep(0.3)  # Respect NCBI baseline throttling boundaries
         
     df = pd.DataFrame(master_records)
-    df = metatagextraction.SR(df)
+    df = SR(df)
     return df
 """
 # ==============================================================================
@@ -879,7 +879,7 @@ def search_scopus_keywords(keyword, max_records=500, key=" "):
         time.sleep(0.3)  # Maintain steady pacing for standard Scopus rate boundaries
         
     df = pd.DataFrame(master_records)
-    df = metatagextraction.SR(df)
+    df = SR(df)
     return df
 
 # ==============================================================================
