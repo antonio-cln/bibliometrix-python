@@ -68,7 +68,7 @@ from www.services import api_etl
 API_PARSER = {
     'pubmed': api_etl.search_pubmed_keywords,
     'open_alex': api_etl.search_openalex_keywords,
-    'wos': api_etl.search_wos_keywords,
+    # 'wos': api_etl.search_wos_keywords,
     'scopus': api_etl.search_scopus_keywords
 }
 
@@ -721,8 +721,8 @@ with ui.tags.div(id="mainContent", class_="main-content"):
                             ui.markdown("Select a predefined sample dataset for testing purposes.")
 
                         elif input.select() == "1D":
-                            ui.h6("API.")
-                            ui.p("API")
+                            # ui.h6("API.")
+                            # ui.p("API")
 
                             ui.markdown("*API*")
                             ui.input_select(
@@ -1127,7 +1127,7 @@ with ui.tags.div(id="mainContent", class_="main-content"):
                 @render.express()
                 def show_informations():
                     data = main_informations()
-                    temp = df_informations.set(data)
+                    df_informations.set(data)
                     with ui.navset_underline(id="tab"):
                         with ui.nav_panel("Box"):
                             ui.p("") #spazio
@@ -4327,8 +4327,11 @@ with ui.tags.div(id="mainContent", class_="main-content"):
                             start_year = input.start_year()
                             end_year = input.end_year()
                             field_separator_spec = input.field_separator_spec()
-                            result = get_references_spectroscopy(df, start_year, end_year, field_separator_spec)
+                            result = get_references_spectroscopy(df.get(), start_year, end_year, field_separator_spec)
                             ref_spectroscopy_results.set(result)
+                        except ValueError as e:
+                            ui.notification_show(f"❌ Error in analysis: {str(e)}", type="error", duration=10)
+
                         finally:
                             ui.modal_remove()
 

@@ -1,7 +1,7 @@
 from www.services import *
 
 
-def get_references_spectroscopy(df, start_year, end_year=2005, field_separator_spec=';'):
+def get_references_spectroscopy(df: pd.DataFrame, start_year: int, end_year=2005, field_separator_spec=';'):
     """
     Generates a Reference Publication Year Spectroscopy (RPYS) interactive plot and tables from a DataFrame of bibliographic data.
 
@@ -16,10 +16,24 @@ def get_references_spectroscopy(df, start_year, end_year=2005, field_separator_s
         rpys_table (pd.DataFrame): Table with RPYS data (years, citations, deviation from median, top references).
         cr_table (pd.DataFrame): Table of cited references with local citation counts and Google Scholar links.
     """
-    df = df.get()
 
-    # Pulizia e preparazione dei dati
-    c_references = df['CR'].apply(lambda x: [i for i in x]).explode()
+    # --- 1. VALIDATION GUARDRAILS ---
+    # Check if the column even exists
+    if 'CR' not in df.columns:
+        raise ValueError("CR_EMPTY_ERROR: The input DataFrame is missing the required 'CR' (Cited References) column.")
+    
+    # Check if the column is completely empty or filled with NaNs
+    if df['CR'].dropna().empty:
+        raise ValueError("CR_EMPTY_ERROR: The 'CR' column is completely empty or contains only null values. Cannot compute RPYS.")
+
+    # 2. Pulizia e preparazione dei dati (Safely explode the list of strings)
+    c_references = df['CR'].dropna().explode()
+    
+    # Check if after exploding we actually have valid records (e.g., wasn't just rows of empty lists)
+    if c_references.empty:
+        raise ValueError("CR_EMPTY_ERROR: The 'CR' column does not contain any valid reference records. Cannot compute RPYS.")
+
+    # Convert to string and clean up formatting
     c_references = c_references.astype(str).str.replace('DOI;', 'DOI ')
     
 
@@ -32,6 +46,11 @@ def get_references_spectroscopy(df, start_year, end_year=2005, field_separator_s
     # Ripetere gli anni per ogni riferimento citato
     references_len = references.str.len()
     references = references[references_len > 0]
+    
+    # Guard element if all internal list references were stripped out
+    if references.empty:
+        raise ValueError("CR_EMPTY_ERROR: No references met the minimum length criteria (>10 characters). Cannot compute RPYS.")
+
     cited_years = references.apply(lambda refs: [int(re.findall(r'\b\d{4},', ref)[0][:-1]) if re.findall(r'\b\d{4},', ref) else 0 for ref in refs]).explode().astype(int).reset_index(drop=True)
     references = references.explode().reset_index(drop=True)
 
@@ -48,26 +67,32 @@ def get_references_spectroscopy(df, start_year, end_year=2005, field_separator_s
     cr_table = ref_df.groupby(['CitedYear', 'Reference']).size().reset_index(name='Freq')
     rpys_table = cr_table.groupby('CitedYear')['Freq'].sum().reset_index(name='Citations')
 
-    # Aggiunta degli anni mancanti
-    year_seq = rpys_table['CitedYear']
-    missing_years = set(range(year_seq.min(), year_seq.max() + 1)) - set(year_seq)
-    missing_years_df = pd.DataFrame({'CitedYear': list(missing_years), 'Citations': [0] * len(missing_years)})
-    rpys_table = pd.concat([rpys_table, missing_years_df]).sort_values('CitedYear').reset_index(drop=True)
+    # --- 3. SAFE GUARD FOR EMPTY DATA AFTER TEMPORAL FILTERING ---
+    if not rpys_table.empty:
+        # Aggiunta degli anni mancanti
+        year_seq = rpys_table['CitedYear']
+        missing_years = set(range(int(year_seq.min()), int(year_seq.max()) + 1)) - set(year_seq)
+        missing_years_df = pd.DataFrame({'CitedYear': list(missing_years), 'Citations': [0] * len(missing_years)})
+        rpys_table = pd.concat([rpys_table, missing_years_df]).sort_values('CitedYear').reset_index(drop=True)
 
-    # Calcolo della mediana mobile
-    YY = [0] * 4 + rpys_table['Citations'].tolist()
-    Median = [np.median(YY[i - 4:i + 1]) for i in range(4, len(YY))]
-    rpys_table['DiffMedian5'] = rpys_table['Citations'] - Median
+        # Calcolo della mediana mobile
+        YY = [0] * 4 + rpys_table['Citations'].tolist()
+        Median = [np.median(YY[i - 4:i + 1]) for i in range(4, len(YY))]
+        rpys_table['DiffMedian5'] = rpys_table['Citations'] - Median
 
-    # Filtraggio per intervallo temporale
-    rpys_table = rpys_table[(rpys_table['CitedYear'] >= start_year) & (rpys_table['CitedYear'] <= end_year)]
+        # Filtraggio per intervallo temporale
+        rpys_table = rpys_table[(rpys_table['CitedYear'] >= start_year) & (rpys_table['CitedYear'] <= end_year)]
 
-    # Imposta diffMedian a 0 se è negativo
-    rpys_table['DiffMedian'] = rpys_table['DiffMedian5'].apply(lambda x: x if x > 0 else 0)
+        # Imposta diffMedian a 0 se è negativo
+        rpys_table['DiffMedian'] = rpys_table['DiffMedian5'].apply(lambda x: x if x > 0 else 0)
 
-    # Identificazione dei top 3 riferimenti per anno
-    top_references = cr_table.sort_values('Freq', ascending=False).groupby('CitedYear')['Reference'].apply(lambda refs: '\n'.join(refs)).reset_index()
-    rpys_table = rpys_table.merge(top_references, left_on='CitedYear', right_on='CitedYear', how='left').rename(columns={'Reference': 'TopReferences'})
+        # Identificazione dei top 3 riferimenti per anno
+        top_references = cr_table.sort_values('Freq', ascending=False).groupby('CitedYear')['Reference'].apply(lambda refs: '\n'.join(refs)).reset_index()
+        rpys_table = rpys_table.merge(top_references, left_on='CitedYear', right_on='CitedYear', how='left').rename(columns={'Reference': 'TopReferences'})
+    else:
+        # Create empty fallback structures so UI/Plotly doesn't crash on empty slice
+        rpys_table['DiffMedian'] = pd.Series(dtype=float)
+        rpys_table['TopReferences'] = pd.Series(dtype=str)
 
     # Creazione del grafico
     fig = make_subplots(specs=[[{"secondary_y": True}]])
@@ -98,7 +123,11 @@ def get_references_spectroscopy(df, start_year, end_year=2005, field_separator_s
                                  'displaylogo': False}
 
     # Tabella CR con link Google Scholar
-    cr_table['GoogleLink'] = cr_table['Reference'].apply(lambda ref: f'<a href="https://scholar.google.it/scholar?q={ref}" target="_blank">link</a>')
+    if not cr_table.empty:
+        cr_table['GoogleLink'] = cr_table['Reference'].apply(lambda ref: f'<a href="https://scholar.google.it/scholar?q={ref}" target="_blank">link</a>')
+    else:
+        cr_table['GoogleLink'] = pd.Series(dtype=str)
+        
     cr_table = cr_table.rename(columns={'CitedYear': 'Year', 'Freq': 'Local Citations'})
 
     return fig, rpys_table, cr_table
