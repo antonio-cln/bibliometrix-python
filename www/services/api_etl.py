@@ -47,15 +47,15 @@ def parse_pubmed_abstract(abstract_node):
                 parts.append(text)
                 
     return " ".join(parts) if parts else ""
-
+"""
 # ==============================================================================
 # HELPER: WEB OF SCIENCE ABSTRACT PARSER
 # ==============================================================================
 def parse_wos_abstract(abstract_node):
-    """
-    Web of Science stores abstracts as structured multi-paragraph structures 
-    under an abstract text node loop. This flattens them cleanly to a string.
-    """
+    
+    #Web of Science stores abstracts as structured multi-paragraph structures 
+    #under an abstract text node loop. This flattens them cleanly to a string.
+    
     if not abstract_node or "abstractText" not in abstract_node:
         return ""
     
@@ -63,7 +63,7 @@ def parse_wos_abstract(abstract_node):
     if isinstance(p_nodes, list):
         return " ".join([str(p).strip() for p in p_nodes if p])
     return str(p_nodes).strip()
-
+"""
 # ==============================================================================
 # HELPER: EXTRACT SCOPUS PLAIN TEXT ABSTRACTS
 # ==============================================================================
@@ -152,7 +152,7 @@ def translate_openalex_record(item):
         "IS": str(biblio.get("issue", "")) if biblio.get("issue") else "",
         "BP": str(biblio.get("first_page", "")) if biblio.get("first_page") else "",
         "EP": str(biblio.get("last_page", "")) if biblio.get("last_page") else "",
-        "SR": calculated_sr   # Calculated Short Reference
+        #"SR": calculated_sr   # Calculated Short Reference
     }
 
 # ==============================================================================
@@ -305,17 +305,17 @@ def translate_pubmed_record(pubmed_article):
         "IS": issue,
         "BP": bp_str,
         "EP": ep_str,
-        "SR": calculated_sr
+        #"SR": calculated_sr
     }
-
+"""
 # ==============================================================================
 # TRANSLATOR: MAP WOS JSON RECORD -> NATIVE 24-TAG DICTIONARY
 # ==============================================================================
 def translate_wos_record(item):
-    """
-    Translates an Expanded Web of Science API JSON document node 
-    into a clean dictionary matching the strict types of your table schema.
-    """
+  
+    #Translates an Expanded Web of Science API JSON document node 
+    #into a clean dictionary matching the strict types of your table schema.
+  
     # Drill down to core record metadata wrappers
     uid = item.get("UID", "")
     static_data = item.get("staticData", {})
@@ -450,15 +450,15 @@ def translate_wos_record(item):
         "EP": str(summary.get("pub_info", {}).get("page", {}).get("end", "")),
         "SR": calculated_sr   
     }
-
+"""
 # ==============================================================================
 # TRANSLATOR: MAP SCOPUS JSON ENTRY -> WOS 24-TAG DICTIONARY
 # ==============================================================================
 def translate_scopus_record(item):
-    """
-    Parses a single Scopus Search JSON entry object and maps the keys
-    into the strict types and layouts required by your Master DataFrame.
-    """
+    
+    #Parses a single Scopus Search JSON entry object and maps the keys
+    #into the strict types and layouts required by your Master DataFrame.
+    
     # Unique Identifier parsing (UT)
     scopus_id = item.get("dc:identifier", "").replace("SCOPUS_ID:", "")
 
@@ -539,7 +539,7 @@ def translate_scopus_record(item):
         "IS": str(item.get("prism:issueIdentifier", "")),
         "BP": bp_str,
         "EP": ep_str,
-        "SR": calculated_sr   
+        #"SR": calculated_sr   
     }
 
 # ==============================================================================
@@ -617,7 +617,7 @@ def search_openalex_keywords(keyword, max_records=500, key=""):
         time.sleep(0.2)
     
     df = pd.DataFrame(master_records)
-    #df = metatagextraction.metaTagExtraction(df, Field='SR')
+    df = metatagextraction.SR(df)
     return df
 
 # ==============================================================================
@@ -709,9 +709,9 @@ def search_pubmed_keywords(keyword, max_records=500, key=""):
         time.sleep(0.3)  # Respect NCBI baseline throttling boundaries
         
     df = pd.DataFrame(master_records)
-    #df = metatagextraction.metaTagExtraction(df, Field='SR')
+    df = metatagextraction.SR(df)
     return df
-
+"""
 # ==============================================================================
 # FETCHER: WOS SEARCH QUERY SYSTEM WITH EXPONENTIAL BACKOFF
 # ==============================================================================
@@ -795,7 +795,7 @@ def search_wos_keywords(keyword, max_records=500, key=""):
     df = pd.DataFrame(master_records)
     #df = metatagextraction.metaTagExtraction(df, Field='SR')
     return df
-
+"""
 # ==============================================================================
 # FETCHER: SCOPUS SEARCH ENGINE WITH EXPONENTIAL BACKOFF RETRY LOOP
 # ==============================================================================
@@ -878,7 +878,7 @@ def search_scopus_keywords(keyword, max_records=500, key=" "):
         time.sleep(0.3)  # Maintain steady pacing for standard Scopus rate boundaries
         
     df = pd.DataFrame(master_records)
-    #df = metatagextraction.metaTagExtraction(df, Field='SR')
+    df = metatagextraction.SR(df)
     return df
 
 # ==============================================================================
