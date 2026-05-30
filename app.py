@@ -1888,7 +1888,7 @@ with ui.tags.div(id="mainContent", class_="main-content"):
             with ui.card(full_screen=True):
                 @reactive.calc
                 def bradford_law():
-                    return get_bradford_law(df)
+                    return get_bradford_law(df.get())
 
                 with ui.navset_underline(id="bradford_law_tab"):
                     with ui.nav_panel("Plot"):

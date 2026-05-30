@@ -1,7 +1,7 @@
 from www.services import *
 
 
-def get_bradford_law(df):
+def get_bradford_law(df:pd.DataFrame):
     """
     Generate a plot and table based on Bradford's Law.
     
@@ -11,8 +11,10 @@ def get_bradford_law(df):
     Returns:
         A Plotly figure object and a DataFrame of the Bradford's Law zones.
     """
-    # Sort data by frequency of occurrence (equivalent to R's sort(table(M$SO), decreasing = TRUE))
-    data = df.get()
+    data = df.copy()
+    # Convert empty strings (or whitespace strings) to None/NaN
+    data["SO"] = data["SO"].replace(r'^\s*$', None, regex=True)
+
     source_counts = data["SO"].value_counts()
     
     # Total number of sources
