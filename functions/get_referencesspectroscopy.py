@@ -49,7 +49,7 @@ def get_references_spectroscopy(df: pd.DataFrame, start_year: int, end_year=2005
     
     # Guard element if all internal list references were stripped out
     if references.empty:
-        raise ValueError("CR_EMPTY_ERROR: No references met the minimum length criteria (>10 characters). Cannot compute RPYS.")
+        raise ValueError("CR_EMPTY_ERROR: No cited references meet the minimum length criteria (>10 characters). Cannot compute RPYS.")
 
     cited_years = references.apply(lambda refs: [int(re.findall(r'\b\d{4},', ref)[0][:-1]) if re.findall(r'\b\d{4},', ref) else 0 for ref in refs]).explode().astype(int).reset_index(drop=True)
     references = references.explode().reset_index(drop=True)
